@@ -7,9 +7,20 @@ const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = () => !!(url && anonKey);
 
-/** When true (default): mock OTP in UI; profile saved to Supabase at onboarding. Set false for real SMS. */
-export const isAuthDevMode = () =>
-  process.env.EXPO_PUBLIC_AUTH_DEV_MODE !== 'false';
+let warnedReleaseDevMode = false;
+
+/**
+ * Dev client: any 6-digit code, no SMS/email send.
+ * Release builds always use the real path, even if EXPO_PUBLIC_AUTH_DEV_MODE is true.
+ */
+export function isAuthDevMode() {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) return true;
+  if (process.env.EXPO_PUBLIC_AUTH_DEV_MODE === 'true' && !warnedReleaseDevMode) {
+    warnedReleaseDevMode = true;
+    console.error('[auth] EXPO_PUBLIC_AUTH_DEV_MODE is true in a release build — ignored');
+  }
+  return false;
+}
 
 export const supabase = isSupabaseConfigured()
   ? createClient(url, anonKey, {

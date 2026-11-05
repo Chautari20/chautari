@@ -37,7 +37,7 @@ Defined in `.env` (gitignored; template in `.env.example`).
 |---|---|---|
 | `EXPO_PUBLIC_SUPABASE_URL` | `src/lib/supabase.js:5` | With the anon key, enables `isSupabaseConfigured()`. Unset → no backend session (`authReady` is true immediately); feed stays empty aside from official circles. |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `src/lib/supabase.js:6` | Anon key for the Supabase client. Never ship `service_role`. |
-| `EXPO_PUBLIC_AUTH_DEV_MODE` | `src/lib/supabase.js:11-12` | Anything except the string `false` → `isAuthDevMode()` true → mock OTP in UI, real Supabase account created at onboarding finish via email/password (`src/services/auth.js:19-48`). `false` → real SMS OTP via `supabase.auth.signInWithOtp`. |
+| `EXPO_PUBLIC_AUTH_DEV_MODE` | `src/lib/supabase.js:16-26` | Only the string `true` **and** a `__DEV__` build → `isAuthDevMode()` / `usesMockOtp()`. Skips sending SMS/email; login still looks up the account and never creates a user. Release logs an error and uses the real path. |
 | `SUPABASE_DB_URL` | `supabase/run-migrations.js`, `supabase/verify.js`, `supabase/scripts/run-sql.js` | Direct Postgres URL for scripts only. Not read by the app. |
 
 Code-level flags (not env): `ENABLE_REPLY_PHOTOS = true` in `src/constants/media.js:2`.
@@ -64,9 +64,11 @@ chautari-test/
 ├── .env.example                Env template
 ├── docs/                       APP_MAP, CLEANUP_REPORT, FEED_COMPOSITION, FEED_RANKING, PRD, BUILD_BRIEF, BUGS
 ├── supabase/
-│   ├── migrations/             000..011 SQL (see §10). Never edit existing 000–010 files.
+│   ├── config.toml             JWT flags for edge functions
+│   ├── migrations/             000..013 SQL (see §10). Never edit existing 000–012 files.
 │   ├── run-migrations.js       Applies migrations in order via `pg`
 │   ├── verify.js               Sanity-checks schema
+│   ├── functions/              email-verification (JWT); account-recovery, account-lookup, email-login (--no-verify-jwt)
 │   ├── scripts/run-sql.js      Run arbitrary SQL file
 │   ├── scripts/grant_expert_ashish2.sql   One-off dev grant script
 │   └── README.md               How to run migrations
@@ -76,7 +78,7 @@ chautari-test/
     │   ├── MainTabs.js         Bottom tabs: Home, Circles, Experts, Profile
     │   └── ExpertsStack.js     Nested stack inside Experts tab: ExpertDirectory → ExpertProfile
     ├── screens/                One folder per feature
-    │   ├── auth/               Splash, Welcome, PhoneEntry, Otp, ProfileName, ProfileSuburb
+    │   ├── auth/               Splash, PhoneEntry (login), PhoneRegister, Otp, EmailLogin*, Email, EmailCode, recovery, ProfileName, ProfileSuburb. WelcomeScreen.js exists but is not in the stack.
     │   ├── home/               Home (feeds), Search, Notifications
     │   ├── questions/          QuestionDetail (thread, answer/reply composers), AskComposer
     │   ├── circles/            CirclesDirectory (tab), CircleDetail, CreateCircle, EditCircle, CirclesSectionSeeAll
@@ -108,7 +110,9 @@ chautari-test/
     │   ├── useProfilePhotoFlow.js Avatar pick → crop → preview modal → confirm
     │   └── useGoBack.js        Safe goBack with tab fallback; Android back handler
     ├── services/
-    │   ├── auth.js             OTP / dev-mode email+password auth wrappers
+    │   ├── auth.js             Phone OTP / mock password auth; email-login token verify
+    │   ├── authSession.js      After a session: home if complete, else first unfinished onboarding step
+    │   ├── emailRecovery.js    Edge function wrappers (verify, recovery, lookup, email-login)
     │   ├── profile.js          profiles row ↔ app user mapping; completeOnboarding; updateProfile
     │   ├── mediaStorage.js     Image staging/compress/upload to `media` bucket; per-target upload helpers
     │   ├── digest.js           Local notification digest: summary, schedule, permissions
@@ -139,11 +143,14 @@ flowchart TD
   Root -->|currentUserId| SignedIn
 
   subgraph AuthGroup[Auth group]
-    Welcome --> PhoneEntry --> Otp --> ProfileName --> ProfileSuburb
+    PhoneEntry -->|login OTP| Otp --> ProfileName --> Email --> EmailCode --> ProfileSuburb
+    PhoneEntry --> PhoneRegister -->|register OTP| Otp
+    PhoneEntry --> EmailLogin --> EmailLoginCode
+    PhoneEntry --> RecoveryEmail --> RecoveryEmailCode --> RecoveryNewPhone --> RecoveryPhoneCode --> RecoverySuccess --> PhoneEntry
     ProfileSuburb -.modal.-> PPP1[ProfilePhotoPreview]
   end
   subgraph ProfileGroup[Needs-profile group]
-    PN2[ProfileName] --> PS2[ProfileSuburb] -.modal.-> PPP2[ProfilePhotoPreview]
+    PN2[ProfileName] --> EM2[Email] --> EC2[EmailCode] --> PS2[ProfileSuburb] -.modal.-> PPP2[ProfilePhotoPreview]
   end
 
   subgraph SignedIn[Signed-in group]
@@ -175,13 +182,14 @@ flowchart TD
     Profile --> VerifiedApplication
     Profile --> ArrivalChecklist
     Settings --> Help & Terms & Privacy & About & DeleteAccount
+    Settings --> ChangePhoneEmailCode --> ChangePhoneNew --> ChangePhoneSmsCode
     Settings --> CreateCircle
     AskComposer --> ExpertProfessionalSetup
     EditProfile -.modal.-> PPP3[ProfilePhotoPreview]
   end
 ```
 
-Gating logic (`src/navigation/RootNavigator.js:70-71`): `ready = state.booted && state.authReady && minTimePassed` (1500 ms minimum splash, line 66); `needsProfile = !!state.authUserId && !state.currentUserId`.
+Gating logic (`src/navigation/RootNavigator.js`): `ready = state.booted && state.authReady && minTimePassed` (1500 ms minimum splash); `needsProfile = !!state.authUserId && !state.currentUserId`. Profile is complete only with a name **and** `email_verified_at` (`utils/email.js:isProfileComplete`). A signed-in user who quit before verifying email lands on `Email`.
 
 ### Route table
 
@@ -190,10 +198,13 @@ All routes use `headerBackVisible: false` and a shared `BackButton` as `headerLe
 | Route name | Navigator | Component | Header / presentation | Params |
 |---|---|---|---|---|
 | `Splash` | Root | `screens/auth/SplashScreen` | hidden, fade | – |
-| `Welcome` | Root (auth) | `screens/auth/WelcomeScreen` | hidden | – |
-| `PhoneEntry` | Root (auth) | `screens/auth/PhoneEntryScreen` | title `''` | – |
-| `Otp` | Root (auth) | `screens/auth/OtpScreen` | title `''` | `phone`, `phoneE164` |
+| `PhoneEntry` | Root (auth), initial signed-out route | `screens/auth/PhoneEntryScreen` | title `''` | `phone?`, `phoneE164?` |
+| `PhoneRegister` | Root (auth) | `screens/auth/PhoneRegisterScreen` | title `''` | `phone?`, `phoneE164?` |
+| `Otp` | Root (auth) | `screens/auth/OtpScreen` | title `''` | `phone`, `phoneE164`, `flow` (`login`/`register`), `createUser` |
+| `EmailLogin` / `EmailLoginCode` | Root (auth) | `screens/auth/EmailLoginScreen`, `EmailLoginCodeScreen` | title `''` | `email` |
+| `RecoveryEmail` / `RecoveryEmailCode` / `RecoveryNewPhone` / `RecoveryPhoneCode` / `RecoverySuccess` | Root (auth) | `screens/auth/Recovery*` | title `''` | email / token / new phone |
 | `ProfileName` | Root (auth + needs-profile) | `screens/auth/ProfileNameScreen` | "Your profile" | `phone`, `phoneE164` |
+| `Email` / `EmailCode` | Root (auth + needs-profile) | `screens/auth/EmailScreen`, `EmailCodeScreen` | "Recovery email" / `''` | `email`, `name`, `phone` |
 | `ProfileSuburb` | Root (auth + needs-profile) | `screens/auth/ProfileSuburbScreen` | "Almost there" | `name`, `phone`, `phoneE164` |
 | `ProfilePhotoPreview` | Root (auth, needs-profile, and signed-in modal group) | `screens/modals/ProfilePhotoPreviewScreen` | "Preview photo", modal, slide_from_bottom | `localUri`, `base64`, `mimeType`, `width`, `height`, `displayName`, `returnScreen` |
 | `Main` | Root | `navigation/MainTabs` | hidden, fade | – |
@@ -218,6 +229,7 @@ All routes use `headerBackVisible: false` and a shared `BackButton` as `headerLe
 | `SavedPosts` | Root | `screens/profile/SavedPostsScreen` | "Saved Posts" | – |
 | `ArrivalChecklist` | Root | `screens/checklist/ArrivalChecklistScreen` | "First 30 Days" | – |
 | `Settings` | Root | `screens/settings/SettingsScreen` | "Settings" | – |
+| `ChangePhoneEmailCode` / `ChangePhoneNew` / `ChangePhoneSmsCode` | Root | `screens/settings/ChangePhone*` | "Change phone number" / "New number" / `''` | `token`, `phoneE164` |
 | `Help` / `Terms` / `Privacy` / `About` | Root | `screens/settings/*` | "Help & FAQ" / "Terms & Conditions" / "Privacy Policy" / "About Chautari" | – |
 | `DeleteAccount` | Root | `screens/settings/DeleteAccountScreen` | "Delete account" | – |
 | `AskComposer` | Root modal group | `screens/questions/AskComposerScreen` | "Post a question", modal | `circleId?` (preselects circle, `AskComposerScreen.js:52`) |
@@ -233,10 +245,13 @@ Navigation helpers: `src/utils/navigation.js` (`useNavigationGuard` debounces do
 | Screen | Purpose | Reads (selectors / services) | Dispatches | Navigates to |
 |---|---|---|---|---|
 | `auth/SplashScreen` | Branded wait while `booted`/`authReady`/1.5 s elapse | – | – | – (RootNavigator swaps route) |
-| `auth/WelcomeScreen` | Intro + "Get started" | – | – | `PhoneEntry` |
-| `auth/PhoneEntryScreen` | AU mobile entry → E.164 | `usesMockOtp`, `sendPhoneOtp`, `toE164Au` | – | `Otp` |
-| `auth/OtpScreen` | 6-digit code, 3 attempts, 60 s resend. Mock mode skips verification. Real mode: `verifyPhoneOtp` then `fetchProfile`; existing profile → `RESTORE_SESSION`, else onboarding | `fetchProfile` | `SET_AUTH`, `RESTORE_SESSION` | `ProfileName` |
-| `auth/ProfileNameScreen` | Display name | – | – | `ProfileSuburb` |
+| `auth/PhoneEntryScreen` | Log in: lookup phone, then OTP (`shouldCreateUser: false`). Pinned Register; email login + lost-number links | `lookupAccount`, `sendPhoneOtp` | – | `Otp`, `PhoneRegister`, `EmailLogin`, `RecoveryEmail` |
+| `auth/PhoneRegisterScreen` | Register: lookup phone, then OTP (`shouldCreateUser: true`) | `lookupAccount`, `sendPhoneOtp` | – | `Otp`, `PhoneEntry` |
+| `auth/OtpScreen` | 6-digit SMS. Mock login: `signInDevForPhone` (no sign-up). Mock register: `ensureSupabaseUserForPhone` | `verifyPhoneOtp`, `finishAuthNavigation` | via `authSession` | home / first incomplete onboarding step |
+| `auth/EmailLoginScreen` / `EmailLoginCodeScreen` | Email login for a **verified** recovery email | `lookupAccount`, `sendEmailLogin`, `verifyEmailLoginCode`, `verifyEmailLoginToken` | via `authSession` | home / onboarding |
+| `auth/EmailScreen` / `EmailCodeScreen` | Recovery email + 6-digit code via `email-verification` | `sendVerifyEmail`, `verifyEmailCode`, `lookupAccount` (mock taken-check) | `SET_AUTH_PROFILE` / `LOGOUT` | `ProfileSuburb` or sign-out to Log in |
+| `auth/Recovery*` | Lost-phone flow via `account-recovery` (no JWT) | `startAccountRecovery` … `completeAccountRecovery` | – | back to `PhoneEntry` with new number |
+| `auth/ProfileNameScreen` | Display name | – | – | `Email` |
 | `auth/ProfileSuburbScreen` | Suburb, avatar, "I'm new to Australia" toggle; finishes onboarding (`uploadAvatar`, `completeOnboarding`) | `completeOnboarding`, `uploadAvatar`, `useProfilePhotoFlow` | `SET_AUTH`, `SIGN_UP`, `UPDATE_PROFILE` | `ProfilePhotoPreview`; Root swaps to `Main` |
 | `home/HomeScreen` | For You / Following tabs, Hot/New toggle, live pill, checklist card, FAB composer; tab re-tap scrolls to top + refreshes (lines 118-127) | `useForYouFeed`, `useLiveDataRefresh({onFocus:true})`, `followingFeed`, `newTodayCount`, `suggestedExperts`, `canOpenComposerToday`, `isNewcomerActive` | `DISMISS_CHECKLIST_CARD`, `TOGGLE_UPVOTE_QUESTION` (via card), `TOGGLE_FOLLOW` (via FollowButton) | `AskComposer`, `Search`, `Notifications`, `QuestionDetail`, `CircleDetail`, `ArrivalChecklist`, author profiles |
 | `home/SearchScreen` | Text + circle/suburb/date filters over `feedQuestions()` | `feedQuestions`, `userById`, `circleById` | – | `QuestionDetail` |
@@ -258,7 +273,8 @@ Navigation helpers: `src/utils/navigation.js` (`useNavigationGuard` debounces do
 | `profile/MyPostsScreen` | Own questions | `myQuestions` | – | `QuestionDetail` |
 | `profile/SavedPostsScreen` | Bookmarked questions | `savedQuestionsList` | – | `QuestionDetail` |
 | `checklist/ArrivalChecklistScreen` | 10 newcomer tasks with progress bar and completion animation | `CHECKLIST_ITEMS`, `isChecklistItemDone` | `TOGGLE_CHECKLIST_ITEM` | `QuestionDetail` (deep link per item) |
-| `settings/SettingsScreen` | Theme toggle, digest mode, offline demo switch, links, sign out | `useTheme`, `useNetwork`, `signOut` | `SET_DIGEST_MODE`, `LOGOUT` | `Help`, `About`, `Terms`, `Privacy`, `EditProfile`, `CreateCircle`, `DeleteAccount` |
+| `settings/SettingsScreen` | Theme toggle, digest, masked recovery email, change phone, sign out | `recoveryEmailStatus`, `useTheme`, `useNetwork`, `signOut` | `SET_DIGEST_MODE`, `LOGOUT` | `ChangePhoneEmailCode`, `Help`, `About`, `Terms`, `Privacy`, `EditProfile`, `CreateCircle`, `DeleteAccount` |
+| `settings/ChangePhone*` | Email code (`change_phone`) → new AU number → `updateUser({ phone })` + `verifyOtp({ type: 'phone_change' })` | `email-verification`, `supabase.auth` | – | `Settings` |
 | `settings/DeleteAccountScreen` | Confirm + wipe local state, Supabase `signOut` | `signOut` | `DELETE_ACCOUNT` | Root swaps to auth group |
 | `settings/Help|Terms|Privacy|About` | Static copy via `components/common/DocScreen` | – | – | – |
 | `modals/ReportScreen` | Reason list per `kind` + detail | – | `ADD_REPORT` | back |
@@ -480,7 +496,9 @@ Following tab: `followingFeed()` = questions authored or answered by followed us
 
 | File | Exports | Notes |
 |---|---|---|
-| `services/auth.js` | `toE164Au`, `usesMockOtp`, `ensureSupabaseUserForPhone`, `sendPhoneOtp`, `verifyPhoneOtp`, `getSession`, `signOut`, `onAuthStateChange` | Dev mode uses email `user+<digits>@chautari.app` and a fixed password (`DEV_AUTH_PASSWORD`, line 3) to create/sign in the account at onboarding finish. |
+| `services/auth.js` | `toE164Au`, `usesMockOtp`, `ensureSupabaseUserForPhone`, `signInDevForPhone`, `sendPhoneOtp`, `verifyPhoneOtp`, `verifyEmailLoginToken`, `getSession`, `signOut`, `onAuthStateChange` | Mock register may create `user+<digits>@chautari.app`. Mock login never creates. Real login: `signInWithOtp` `shouldCreateUser: false`. |
+| `services/authSession.js` | `finishAuthNavigation` | `SET_AUTH_PROFILE` then home (`RESTORE_SESSION`) or first incomplete onboarding route. |
+| `services/emailRecovery.js` | verify / recovery / `lookupAccount` / `sendEmailLogin` / `verifyEmailLoginCode` | Invokes edge functions; friendly `error` plus `__DEV__` `devDetail`. |
 | `services/profile.js` | `normalizePhoneE164`, `ensureProfilePhone`, `profileRowToUser`, `profileMetaFromRow`, `fetchProfile`, `updateProfile`, `completeOnboarding` | `completeOnboarding` ensures the auth user exists then updates `profiles` (name, suburb, photo_url, newcomer, is_founding_member = true, phone). |
 | `services/mediaStorage.js` | `stagePickerAssetToFile`, `getMediaPublicUrl`, `prepareImageForUpload`, `uploadMediaFile`, `uploadImageAsset`, `uploadPreparedImage`, `uploadAvatar`, `uploadQuestionPhotos`, `uploadCircleImage`, `uploadAnswerPhoto`, `uploadReplyPhoto`, `uploadExpertCredential` | Pipeline: stage → resize ≤ 1920 px, JPEG q0.82 → base64 → ArrayBuffer → `storage.from('media').upload(<prefix>/<uid>/<file>)`. Prefixes in `constants/media.js:MEDIA_PATH_PREFIX`. Requires signed-in user (RLS). |
 | `services/digest.js` | `ensureNotificationPermissions`, `composeDigestSummary`, `cancelDigestSchedule`, `scheduleDigest`, `addDigestInAppNotification`, `runDigestPreview` | Local `expo-notifications` only. Daily 18:00 or weekly Monday 18:00 (`weekday: 2`), identifier `chautari-daily-digest`. Tapping routes to Circles tab (`components/common/DigestManager.js`). |
@@ -488,7 +506,7 @@ Following tab: `followingFeed()` = questions authored or answered by followed us
 | `services/liveData/persist.js` | `shouldSyncAction`, `persistAction` | See action table (§5). |
 | `services/liveData/mappers.js` | `authorToApp`, `authorToDb`, `mapReply`, `mapAnswer`, `mapQuestion`, `mapProfileRow`, `mapCircle` | snake_case rows → camelCase app objects; `created_at` → epoch ms. |
 | `services/liveData/ids.js` | `isValidUuid`, `filterValidUuids`, `makeId` | |
-| `lib/supabase.js` | `supabase`, `isSupabaseConfigured`, `isAuthDevMode` | Client is `null` when not configured. |
+| `lib/supabase.js` | `supabase`, `isSupabaseConfigured`, `isAuthDevMode` | Client is `null` when not configured. Mock only if `EXPO_PUBLIC_AUTH_DEV_MODE === 'true'` and `__DEV__`. |
 
 ### Hooks
 
@@ -540,14 +558,19 @@ Following tab: `followingFeed()` = questions authored or answered by followed us
 | `009_expert_profile_fields.sql` | `profiles.expert_badge_title`, `profiles.expert_circle_id` (FK circles, set null) |
 | `010_relax_answer_reply_lengths.sql` | Replace `answers_body_check` and `replies_body_check` with `char_length(btrim(body)) > 0` |
 | `011_clear_seed_content.sql` | Null `checklist_items.question_id` when the question is missing; delete empty 002 seed user circles |
+| `012_verified_recovery_email.sql` | `profiles.email` + `email_verified_at` (service_role write only); unique verified email; `email_codes`; `recovery_sessions`; `profile_is_complete()` |
+| `013_auth_lookup_and_email_login.sql` | `auth_checks` (service_role only, IP rate limit); `email_codes.purpose` adds `login`; `profiles_phone_idx` |
 
-Whether all migrations have been applied to the current hosted project is **UNVERIFIED** from the repo.
+`013` is applied on the hosted project. Whether `012` is applied is implied by `013` succeeding (`email_codes` must exist).
 
-### Tables (after 011)
+### Tables (after 013)
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `profiles` | `id UUID PK → auth.users`, `phone`, `name`, `suburb`, `photo_url`, `bio`, `verified`, `verified_category`, `profession`, `contact`, `is_founding_member`, `newcomer`, `newcomer_since`, `digest_mode` (enum daily/weekly/off), `checklist_card_dismissed`, `followers_count`, `expert_badge_title`, `expert_circle_id`, timestamps | Auto-created by trigger |
+| `profiles` | `id UUID PK → auth.users`, `phone`, `email`, `email_verified_at`, `name`, `suburb`, `photo_url`, `bio`, `verified`, `verified_category`, `profession`, `contact`, `is_founding_member`, `newcomer`, `newcomer_since`, `digest_mode` (enum daily/weekly/off), `checklist_card_dismissed`, `followers_count`, `expert_badge_title`, `expert_circle_id`, timestamps | Auto-created by trigger. Clients cannot write `email` / `email_verified_at`. Raw `email` is not selectable by anon/authenticated. |
+| `email_codes` | `id`, `user_id`, `email`, `purpose` (verify_email/recovery/change_phone/login), `code_hash`, `expires_at`, `attempts`, `consumed_at` | RLS on, no policies — service_role only |
+| `auth_checks` | `id`, `ip`, `created_at` | RLS on, no policies — service_role only. 10 / IP / minute for `account-lookup` |
+| `recovery_sessions` | `id`, `user_id`, `token_hash`, `expires_at`, `consumed_at`, `new_phone` | RLS on, no policies — service_role only |
 | `circles` | `id TEXT PK`, `name`, `handle UNIQUE`, `description`, `icon`, `accent_id`, `creator_id UUID`, `is_official`, `pinned_question_id → questions`, `member_count`, `image_url`, timestamps | |
 | `circle_members` | `(circle_id, user_id) PK` | |
 | `questions` | `id TEXT PK`, `circle_id → circles (RESTRICT)`, `author_id UUID`, `anonymous`, `title` (10–120 chars), `body` (30–4000 chars), `photos JSONB`, `upvotes`, `views`, `posted_as_expert`, `profession_label`, timestamps | |
@@ -601,7 +624,10 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 | Live refetch on focus at most every 45 s | `hooks/useLiveDataRefresh.js:5` |
 | Home tab re-tap scrolls to top and refreshes only when Home is already the selected tab | `screens/home/HomeScreen.js:118-127` |
 | OTP: 6 digits, 3 attempts, 60 s resend cooldown; mock mode accepts any 6 digits | `screens/auth/OtpScreen.js` (`LENGTH`, `attempts`, `setSeconds(60)`) |
-| Dev auth creates `user+<digits>@chautari.app` with a fixed password | `services/auth.js:3, 23-48` |
+| Sign-in is phone OTP (login vs register) or a code to a **verified** recovery email. Email is not a password | `PhoneEntryScreen`, `EmailLoginScreen`, `012`/`013` |
+| Login must not create an account (`shouldCreateUser: false`); register may | `services/auth.js` `sendPhoneOtp` |
+| Mock OTP only if `EXPO_PUBLIC_AUTH_DEV_MODE === 'true'` and `__DEV__`; mock login never sign-ups | `lib/supabase.js` `isAuthDevMode`, `signInDevForPhone` |
+| Dev register may create `user+<digits>@chautari.app` with a fixed password | `services/auth.js` `ensureSupabaseUserForPhone` |
 | Digest: daily 18:00 or weekly Monday 18:00 local notification; off disables | `services/digest.js:67-69` |
 | Splash shows at least 1.5 s | `navigation/RootNavigator.js:66` |
 | Every `SYNC_ACTIONS` write goes to Supabase when configured | `services/liveData/persist.js` |
@@ -613,7 +639,9 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 
 | Feature | Status | Evidence |
 |---|---|---|
-| Phone OTP sign-in | **Mock by default**; real SMS path exists behind `EXPO_PUBLIC_AUTH_DEV_MODE=false` and requires Supabase phone provider configured (**UNVERIFIED** provider setup) | `services/auth.js` |
+| Phone OTP sign-in | Login vs register. Mock only when `EXPO_PUBLIC_AUTH_DEV_MODE=true` in `__DEV__`. Real SMS when that flag is off and Phone provider is configured | `services/auth.js`, `PhoneEntryScreen`, `PhoneRegisterScreen` |
+| Email login | Code to a verified recovery email via `email-login` + `verifyOtp` (`token_hash`) | `EmailLoginScreen`, `supabase/functions/email-login` |
+| Recovery email | Onboarding step + lost-number recovery + Settings change-phone + email login | `supabase/functions/` |
 | Profile sync (name, suburb, avatar, bio, newcomer, digest, checklist dismissed) | Working when configured | `services/profile.js`, `persist.js` |
 | Ask / answer / reply with photos | Working; synced when Supabase is configured | §6 |
 | Upvotes, saves, follows, joins | Working; optimistic with server toggle | `persist.js` |
@@ -651,13 +679,13 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 Header block (`HomeScreen.js:~140-180`): segment control, Hot/New toggle (`FeedSortToggle`), live pill, `ChecklistFeedCard`. List: `QuestionFeedList` → `QuestionCard`; `CirclesRecommendRow` injected via `insertAfterIndex`. Top bar: Search and Notifications buttons (`187-190`).
 
 **"How does a new user get into the app?"**
-`RootNavigator` auth group → `PhoneEntry` → `Otp` (mock: any 6 digits) → `ProfileName` → `ProfileSuburb` → `completeOnboarding` (Supabase user + profile) → `SET_AUTH` + `SIGN_UP` → `currentUserId = 'me'` → RootNavigator renders signed-in group (`Main`). Returning user: `DataProvider` boot → `getSession` → `fetchProfile` → `RESTORE_SESSION`.
+`RootNavigator` auth group starts at `PhoneEntry` (Log in). Register → `PhoneRegister` → `Otp` (`createUser: true`) → name → recovery email → suburb → `completeOnboarding`. Returning user: Log in looks up `profiles.phone` then OTP (`shouldCreateUser: false`); complete profile → `RESTORE_SESSION`, else first incomplete onboarding step. Email login: verified email → `email-login` → `verifyOtp`.
+
+**"How do I add a Supabase column?"**
+Add a new `supabase/migrations/014_*.sql` (never edit older files), run `node supabase/run-migrations.js 014`, map the column in `services/liveData/mappers.js` and/or `services/profile.js`, write it in `persist.js` for the relevant action.
 
 **"Where are theme colours defined?"**
 `theme/palettes.js` (light/dark semantic tokens) consumed via `useTheme()`; circle accents resolved only through `data/circles.js:resolveCircleAccent` with contrast clamping from `utils/color.js`.
 
 **"How do I add a screen?"**
 Create it under the matching `src/screens/<feature>/`, import in `navigation/RootNavigator.js` (or `MainTabs.js`/`ExpertsStack.js`), add `<Stack.Screen name=… />`, navigate with `useNavigationGuard(navigation).navigate('Name', params)`. Do not rename existing route names (they are referenced as strings across screens; see counts in `CLEANUP_REPORT.md`).
-
-**"How do I add a Supabase column?"**
-Add a new `supabase/migrations/011_*.sql` (never edit older files), run `node supabase/run-migrations.js`, map the column in `services/liveData/mappers.js` and/or `services/profile.js`, write it in `persist.js` for the relevant action.

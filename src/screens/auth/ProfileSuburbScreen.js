@@ -21,7 +21,7 @@ export default function ProfileSuburbScreen({ navigation, route }) {
   const styles = useMemo(() => createStyles(colors, spacing, font, radius), [colors, spacing, font, radius]);
 
   const { dispatch, state } = useData();
-  const name = route.params?.name || 'You';
+  const name = route.params?.name || state.authProfileName || 'You';
   const [suburb, setSuburb] = useState(null);
   const [photo, setPhoto] = useState(null);
   const [newcomer, setNewcomer] = useState(false);

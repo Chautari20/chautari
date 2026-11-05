@@ -1,11 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useData, useSelectors } from '../../data/store';
 import { composeDigestSummary, scheduleDigest, ensureNotificationPermissions } from '../../services/digest';
 import { useNetwork } from '../../data/network';
 import { useTheme } from '../../theme/ThemeContext';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { signOut } from '../../services/auth';
+import { recoveryEmailStatus } from '../../services/emailRecovery';
 
 // Settings: support links (real screens), account actions, and a demo offline toggle.
 export default function SettingsScreen({ navigation }) {
@@ -14,6 +16,21 @@ export default function SettingsScreen({ navigation }) {
   const { online, setOnline } = useNetwork();
   const { colors, spacing, font, radius, isDark, setMode } = useTheme();
   const styles = useMemo(() => createStyles(colors, spacing, font, radius), [colors, spacing, font, radius]);
+
+  const [emailMasked, setEmailMasked] = useState('');
+
+  useFocusEffect(useCallback(() => {
+    if (!isSupabaseConfigured()) return undefined;
+    let cancelled = false;
+    recoveryEmailStatus()
+      .then((data) => {
+        if (!cancelled) setEmailMasked(data.emailMasked || '');
+      })
+      .catch(() => {
+        if (!cancelled) setEmailMasked('');
+      });
+    return () => { cancelled = true; };
+  }, []));
 
   const logout = () => {
     Alert.alert('Log out?', 'You can sign back in anytime with your phone number.', [
@@ -51,6 +68,16 @@ export default function SettingsScreen({ navigation }) {
 
       <Text style={styles.section}>Account</Text>
       <View style={styles.group}>
+        {emailMasked ? (
+          <View style={styles.row}>
+            <Text style={styles.rowIcon}>✉️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowLabel}>Recovery email</Text>
+              <Text style={styles.rowSub}>{emailMasked}</Text>
+            </View>
+          </View>
+        ) : null}
+        <Row label="Change phone number" icon="📱" onPress={() => navigation.navigate('ChangePhoneEmailCode')} />
         <Row label="Edit profile" icon="✏️" onPress={() => navigation.navigate('EditProfile')} />
         <Row label="Create a circle" icon="⭕" onPress={() => navigation.navigate('CreateCircle')} />
         <Row label="Log out" icon="🚪" onPress={logout} />

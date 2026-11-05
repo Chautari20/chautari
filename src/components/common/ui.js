@@ -64,7 +64,7 @@ export function SectionLabel({ children, style }) {
   return <Text style={[styles.sectionLabel, style]}>{children}</Text>;
 }
 
-export function Field({ label, hint, error, children }) {
+export function Field({ label, hint, error, errorDetail, children }) {
   const { spacing } = useTheme();
   const styles = useUIStyles();
   return (
@@ -72,6 +72,7 @@ export function Field({ label, hint, error, children }) {
       {label ? <Text style={styles.fieldLabel}>{label}</Text> : null}
       {children}
       {error ? <Text style={styles.fieldError}>{error}</Text> : hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+      {error && errorDetail ? <Text style={styles.fieldErrorDetail}>{errorDetail}</Text> : null}
     </View>
   );
 }
@@ -155,6 +156,7 @@ const createStyles = (colors, spacing, radius, font, line, shadow) => StyleSheet
   fieldLabel: { fontSize: font.caption, fontWeight: '800', color: colors.text, marginBottom: 7 },
   fieldHint: { fontSize: font.tiny, color: colors.textMuted, marginTop: 5 },
   fieldError: { fontSize: font.tiny, color: colors.danger, marginTop: 5, fontWeight: '700' },
+  fieldErrorDetail: { fontSize: font.tiny, color: colors.textMuted, marginTop: 2 },
   input: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 13, fontSize: font.body, color: colors.text },
   inputMultiline: { minHeight: 120, textAlignVertical: 'top', paddingTop: 13, lineHeight: 22 },
   charCount: { fontSize: font.tiny, fontWeight: '800', alignSelf: 'flex-end' },

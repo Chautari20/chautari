@@ -54,3 +54,6 @@ GoogleService-Info.plist
 # Build outputs
 *.apk
 *.aab
+
+# Supabase CLI cache
+supabase/.temp/

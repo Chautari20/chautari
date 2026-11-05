@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured, isAuthDevMode } from '../lib/supabase';
+import { AUTH_COPY } from '../utils/authCopy';
 
 const DEV_AUTH_PASSWORD = 'chautari-prototype';
 
@@ -15,9 +16,8 @@ export function toE164Au(digits) {
   return `+61${cleaned}`;
 }
 
-/** Prototype: mock OTP in the app; real Supabase account is created at onboarding finish. */
 export function usesMockOtp() {
-  return !isSupabaseConfigured() || isAuthDevMode();
+  return isAuthDevMode();
 }
 
 function emailForPhone(phoneE164) {
@@ -25,7 +25,17 @@ function emailForPhone(phoneE164) {
   return `user+${digits}@chautari.app`;
 }
 
-/** Creates or signs in a Supabase user for this phone (email provider, no SMS). */
+function mapAuthError(error, kind) {
+  const raw = `${error?.message || ''} ${error?.code || ''}`;
+  if (/rate|too many/i.test(raw)) return new Error(AUTH_COPY.tooMany);
+  if (kind === 'login' && /not found|signups not allowed|unable to find|user not found/i.test(raw)) {
+    return new Error(AUTH_COPY.noAccountPhone);
+  }
+  if (/invalid|otp|token|code/i.test(raw)) return new Error(AUTH_COPY.codeWrong);
+  return new Error(AUTH_COPY.unavailable);
+}
+
+/** Dev/register only: create or sign in the synthetic email/password user. Never used for login. */
 export async function ensureSupabaseUserForPhone(phoneE164) {
   if (!isSupabaseConfigured()) return null;
   const email = emailForPhone(phoneE164);
@@ -42,25 +52,59 @@ export async function ensureSupabaseUserForPhone(phoneE164) {
     password: DEV_AUTH_PASSWORD,
     options: { data: { phone } },
   }));
-  if (error) throw error;
-  if (!data.user) throw new Error('Could not create account');
+  if (error) throw mapAuthError(error, 'register');
+  if (!data.user) throw new Error(AUTH_COPY.unavailable);
   return data.user;
 }
 
-export async function sendPhoneOtp(phoneE164) {
+/** Dev login only — never creates an account. */
+export async function signInDevForPhone(phoneE164) {
+  if (!isSupabaseConfigured()) throw new Error(AUTH_COPY.unavailable);
+  const email = emailForPhone(phoneE164);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: DEV_AUTH_PASSWORD,
+  });
+  if (error || !data.user) throw new Error(AUTH_COPY.noAccountPhone);
+  return data.user;
+}
+
+export async function sendPhoneOtp(phoneE164, { createUser = false } = {}) {
   if (usesMockOtp()) return;
-  const { error } = await supabase.auth.signInWithOtp({ phone: phoneE164 });
-  if (error) throw error;
+  if (!isSupabaseConfigured()) throw new Error(AUTH_COPY.unavailable);
+  const { error } = await supabase.auth.signInWithOtp({
+    phone: phoneE164,
+    options: { shouldCreateUser: !!createUser },
+  });
+  if (error) throw mapAuthError(error, createUser ? 'register' : 'login');
 }
 
 export async function verifyPhoneOtp(phoneE164, token) {
-  if (!isSupabaseConfigured()) return { user: null };
+  if (!isSupabaseConfigured()) throw new Error(AUTH_COPY.unavailable);
   const { data, error } = await supabase.auth.verifyOtp({
     phone: phoneE164,
     token,
     type: 'sms',
   });
-  if (error) throw error;
+  if (error) throw mapAuthError(error, 'login');
+  if (!data.user) throw new Error(AUTH_COPY.unavailable);
+  return { user: data.user, session: data.session };
+}
+
+export async function verifyEmailLoginToken(tokenHash, type = 'magiclink') {
+  if (!isSupabaseConfigured()) throw new Error(AUTH_COPY.unavailable);
+  const tryType = async (otpType) => supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: otpType,
+  });
+  let { data, error } = await tryType(type || 'magiclink');
+  if ((error || !data?.user) && type !== 'email') {
+    const retry = await tryType('email');
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw mapAuthError(error, 'login');
+  if (!data.user) throw new Error(AUTH_COPY.unavailable);
   return { user: data.user, session: data.session };
 }
 

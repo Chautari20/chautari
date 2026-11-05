@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { mapQuestion, mapProfileRow, mapCircle } from './mappers';
+import { PROFILE_PUBLIC_COLUMNS } from '../profile';
 import { filterValidUuids, isValidUuid } from './ids';
 
 const EMPTY_BUNDLE = {
@@ -91,7 +92,7 @@ export async function fetchLiveBundle(currentUserId) {
   if (profileIds.length > 0) {
     const { data: profiles, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select(PROFILE_PUBLIC_COLUMNS)
       .in('id', profileIds);
     if (error) {
       warnFetch('profiles', error);

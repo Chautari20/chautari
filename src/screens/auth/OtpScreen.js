@@ -1,11 +1,19 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
 import Button from '../../components/common/Button';
 import KeyboardScreen from '../../components/common/KeyboardScreen';
 import { useTheme } from '../../theme/ThemeContext';
 import { useData } from '../../data/store';
-import { fetchProfile } from '../../services/profile';
-import { sendPhoneOtp, verifyPhoneOtp, usesMockOtp } from '../../services/auth';
+import {
+  ensureSupabaseUserForPhone,
+  sendPhoneOtp,
+  signInDevForPhone,
+  usesMockOtp,
+  verifyPhoneOtp,
+} from '../../services/auth';
+import { finishAuthNavigation } from '../../services/authSession';
+import { AUTH_COPY } from '../../utils/authCopy';
+import { emptyScreenError, screenError } from '../../utils/formError';
 
 const LENGTH = 6;
 
@@ -16,10 +24,11 @@ export default function OtpScreen({ navigation, route }) {
 
   const phone = route.params?.phone || '';
   const phoneE164 = route.params?.phoneE164 || '';
+  const createUser = !!route.params?.createUser || route.params?.flow === 'register';
   const [code, setCode] = useState('');
   const [seconds, setSeconds] = useState(60);
   const [attempts, setAttempts] = useState(3);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(emptyScreenError());
   const [verifying, setVerifying] = useState(false);
   const inputRef = useRef(null);
   const mockOtp = usesMockOtp();
@@ -30,44 +39,48 @@ export default function OtpScreen({ navigation, route }) {
     return () => clearInterval(t);
   }, [seconds]);
 
-  const goToOnboarding = () => {
-    navigation.navigate('ProfileName', { phone, phoneE164 });
-  };
-
-  const afterRealOtp = async (userId) => {
-    dispatch({ type: 'SET_AUTH', userId });
-    const row = await fetchProfile(userId);
-    if (row?.name?.trim()) {
-      dispatch({ type: 'RESTORE_SESSION', userId, profile: row });
-      return;
-    }
-    goToOnboarding();
-  };
+  const afterOtp = (userId) => finishAuthNavigation({
+    userId,
+    phone,
+    phoneE164,
+    navigation,
+    dispatch,
+  });
 
   const verify = async () => {
     if (code.length !== LENGTH || verifying) {
       if (code.length !== LENGTH) {
         const left = attempts - 1;
         setAttempts(left);
-        setError(left > 0 ? `Enter all 6 digits. ${left} attempt${left === 1 ? '' : 's'} left.` : 'Too many attempts. Resend a new code.');
+        setError(screenError(new Error(
+          left > 0
+            ? `Enter all 6 digits. ${left} attempt${left === 1 ? '' : 's'} left.`
+            : AUTH_COPY.tooMany,
+        )));
         if (left <= 0) setCode('');
       }
       return;
     }
 
-    setError('');
+    setError(emptyScreenError());
     setVerifying(true);
     try {
       if (mockOtp) {
-        goToOnboarding();
+        const user = createUser
+          ? await ensureSupabaseUserForPhone(phoneE164)
+          : await signInDevForPhone(phoneE164);
+        if (!user?.id) throw new Error(AUTH_COPY.unavailable);
+        await afterOtp(user.id);
         return;
       }
       const { user } = await verifyPhoneOtp(phoneE164, code);
-      await afterRealOtp(user.id);
+      if (!user?.id) throw new Error(AUTH_COPY.unavailable);
+      await afterOtp(user.id);
     } catch (e) {
       const left = attempts - 1;
       setAttempts(left);
-      setError(left > 0 ? (e?.message || 'Invalid code. Try again.') : 'Too many attempts. Resend a new code.');
+      const fallback = left > 0 ? AUTH_COPY.codeWrong : AUTH_COPY.tooMany;
+      setError(screenError(left > 0 ? e : new Error(AUTH_COPY.tooMany), fallback));
       if (left <= 0) setCode('');
     } finally {
       setVerifying(false);
@@ -77,14 +90,13 @@ export default function OtpScreen({ navigation, route }) {
   const resend = async () => {
     setSeconds(60);
     setAttempts(3);
-    setError('');
+    setError(emptyScreenError());
     setCode('');
-    if (!mockOtp && phoneE164) {
-      try {
-        await sendPhoneOtp(phoneE164);
-      } catch (e) {
-        setError(e?.message || 'Could not resend code.');
-      }
+    if (mockOtp || !phoneE164) return;
+    try {
+      await sendPhoneOtp(phoneE164, { createUser });
+    } catch (e) {
+      setError(screenError(e, AUTH_COPY.unavailable));
     }
   };
 
@@ -95,8 +107,7 @@ export default function OtpScreen({ navigation, route }) {
       contentStyle={styles.body}
       footer={(
         <View style={styles.footer}>
-          <Button title={verifying ? 'Verifying…' : 'Verify'} onPress={verify} disabled={code.length !== LENGTH || verifying} />
-          {verifying ? <ActivityIndicator style={{ marginTop: spacing.md }} color={colors.primary} /> : null}
+          <Button title={verifying ? 'Verifying…' : 'Verify'} onPress={verify} disabled={code.length !== LENGTH || verifying} loading={verifying} />
         </View>
       )}
     >
@@ -117,14 +128,17 @@ export default function OtpScreen({ navigation, route }) {
       <TextInput
         ref={inputRef}
         value={code}
-        onChangeText={(t) => { setError(''); setCode(t.replace(/\D/g, '').slice(0, LENGTH)); }}
+        onChangeText={(t) => { setError(emptyScreenError()); setCode(t.replace(/\D/g, '').slice(0, LENGTH)); }}
         keyboardType="number-pad"
+        textContentType="oneTimeCode"
+        autoComplete="one-time-code"
         style={styles.hiddenInput}
         autoFocus
         maxLength={LENGTH}
       />
 
-      {error ? <Text style={styles.err}>{error}</Text> : null}
+      {error.message ? <Text style={styles.err}>{error.message}</Text> : null}
+      {error.detail ? <Text style={styles.errDetail}>{error.detail}</Text> : null}
 
       <View style={styles.resendRow}>
         {seconds > 0 ? (
@@ -147,6 +161,7 @@ const createStyles = (colors, spacing, font, radius) => StyleSheet.create({
   cellText: { fontSize: 26, fontWeight: '700', color: colors.text },
   hiddenInput: { position: 'absolute', opacity: 0, height: 1, width: 1 },
   err: { color: colors.danger, fontSize: font.small, fontWeight: '600', marginBottom: spacing.sm },
+  errDetail: { color: colors.textMuted, fontSize: font.tiny, fontWeight: '500', marginBottom: spacing.sm },
   resendRow: { marginTop: spacing.sm },
   resendMuted: { color: colors.textMuted, fontSize: font.small },
   resendLink: { color: colors.primary, fontSize: font.small, fontWeight: '700' },

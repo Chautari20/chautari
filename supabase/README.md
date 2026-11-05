@@ -33,6 +33,8 @@ Run each file **in order**, one at a time. Check the result panel shows success 
 | 10 | `migrations/009_expert_profile_fields.sql` | Expert badge + circle on profiles |
 | 11 | `migrations/010_relax_answer_reply_lengths.sql` | Answers and replies: any non-empty body |
 | 12 | `migrations/011_clear_seed_content.sql` | Null dangling checklist `question_id`; delete empty 002 seed user circles |
+| 13 | `migrations/012_verified_recovery_email.sql` | Recovery email columns, `email_codes`, `recovery_sessions` |
+| 14 | `migrations/013_auth_lookup_and_email_login.sql` | `auth_checks`, email-login purpose, `profiles_phone_idx` |
 
 ### Storage — `media` bucket (migration 006)
 
@@ -56,7 +58,7 @@ Client uses the **anon key** only. Never ship `service_role` in the app.
 
 ### Edge Functions / webhooks
 
-Dashboard → **Edge Functions** — delete or redeploy anything from the old experiment.
+See [`functions/README.md`](./functions/README.md). Deploy `email-verification` (JWT on) plus `account-recovery`, `account-lookup`, and `email-login` (`--no-verify-jwt`). Dashboard → **Edge Functions** — the leftover `resend-email` function is unused by this app.
 
 ---
 
@@ -92,10 +94,10 @@ Karma is **computed** from upvotes (same as the prototype) — not stored.
 ## After reset
 
 1. The app uses **live Supabase data** after onboarding (official circles + checklist catalog ship in the client).
-2. Dashboard → Authentication → **Email** → ON, **Confirm email** → OFF (prototype sign-up uses email under the hood).
-3. Default: mock OTP (any 6 digits). Your profile is written to Supabase when you tap **Finish** on onboarding.
+2. Dashboard → Authentication → **Phone** on for real SMS. Leave **Email** / SMTP **off** so email-login `generateLink` does not send a second magic-link email. Mock phone accounts still use a synthetic email+password under the hood.
+3. Dev mock OTP: `EXPO_PUBLIC_AUTH_DEV_MODE=true` in a `__DEV__` build (skips sending). Login still looks up the account and will not create one. Function secret `AUTH_DEV_BYPASS=true` accepts any 6-digit **email** code on this project only.
 4. Set `EXPO_PUBLIC_AUTH_DEV_MODE=false` in `.env` when Twilio SMS is ready for real phone OTP.
-5. Test: sign up → finish onboarding → check Table Editor → `profiles`.
+5. Test: Register → OTP → onboarding → Table Editor → `profiles`. Log in with that number. Log in with the verified recovery email.
 
 ---
 

@@ -1,41 +1,45 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Button from '../../components/common/Button';
 import KeyboardScreen from '../../components/common/KeyboardScreen';
-import { Input } from '../../components/common/ui';
+import PhoneNumberField, { digitsFromRoute } from '../../components/auth/PhoneNumberField';
 import { useTheme } from '../../theme/ThemeContext';
-import { sendPhoneOtp, toE164Au, usesMockOtp } from '../../services/auth';
+import { sendPhoneOtp, toE164Au } from '../../services/auth';
+import { lookupAccount } from '../../services/emailRecovery';
+import { AUTH_COPY } from '../../utils/authCopy';
+import { emptyScreenError, screenError } from '../../utils/formError';
 
-// AU mobile entry. +61 is fixed; user types the 9-digit mobile (starts with 4).
-export default function PhoneEntryScreen({ navigation }) {
-  const { colors, spacing, font, radius } = useTheme();
-  const styles = useMemo(() => createStyles(colors, spacing, font, radius), [colors, spacing, font, radius]);
+export default function PhoneEntryScreen({ navigation, route }) {
+  const { colors, spacing, font } = useTheme();
+  const styles = useMemo(() => createStyles(colors, spacing, font), [colors, spacing, font]);
 
-  const [digits, setDigits] = useState('');
+  const [digits, setDigits] = useState(() => digitsFromRoute(route));
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(emptyScreenError());
   const cleaned = digits.replace(/\D/g, '');
-
-  // AU mobile: 9 digits beginning with 4 (e.g. 412 345 678).
   const valid = /^4\d{8}$/.test(cleaned);
 
   const onSend = async () => {
     if (!valid || sending) return;
-    setError('');
+    setError(emptyScreenError());
     const phoneE164 = toE164Au(cleaned);
     const phoneDisplay = `+61 ${cleaned}`;
-
-    if (usesMockOtp()) {
-      navigation.navigate('Otp', { phone: phoneDisplay, phoneE164 });
-      return;
-    }
-
     setSending(true);
     try {
-      await sendPhoneOtp(phoneE164);
-      navigation.navigate('Otp', { phone: phoneDisplay, phoneE164 });
+      const exists = await lookupAccount({ phone: phoneE164 });
+      if (!exists) {
+        setError(screenError(new Error(AUTH_COPY.noAccountPhone)));
+        return;
+      }
+      await sendPhoneOtp(phoneE164, { createUser: false });
+      navigation.navigate('Otp', {
+        phone: phoneDisplay,
+        phoneE164,
+        flow: 'login',
+        createUser: false,
+      });
     } catch (e) {
-      setError(e?.message || 'Could not send code. Check Phone auth is enabled in Supabase.');
+      setError(screenError(e, AUTH_COPY.unavailable));
     } finally {
       setSending(false);
     }
@@ -46,45 +50,47 @@ export default function PhoneEntryScreen({ navigation }) {
       contentStyle={styles.body}
       footer={(
         <View style={styles.footer}>
-          <Button title={sending ? 'Sending…' : 'Send code'} onPress={onSend} disabled={!valid || sending} />
-          {sending ? <ActivityIndicator style={{ marginTop: spacing.md }} color={colors.primary} /> : null}
+          <Button title="Send code" onPress={onSend} disabled={!valid || sending} loading={sending} />
+          <Button
+            title="Register"
+            variant="outline"
+            onPress={() => navigation.navigate('PhoneRegister', { phone: digits, phoneE164: valid ? toE164Au(cleaned) : undefined })}
+            disabled={sending}
+            style={styles.registerBtn}
+          />
         </View>
       )}
     >
-      <Text style={styles.title}>What's your number?</Text>
-      <Text style={styles.sub}>We'll text you a 6-digit code to verify it. No passwords, ever.</Text>
+      <Text style={styles.title}>Log in</Text>
+      <Text style={styles.sub}>We'll text you a 6-digit code. No passwords, ever.</Text>
 
-      <View style={styles.phoneRow}>
-        <View style={styles.prefix}><Text style={styles.prefixText}>🇦🇺 +61</Text></View>
-        <Input
-          style={styles.phoneInput}
-          placeholder="412 345 678"
-          keyboardType="number-pad"
-          value={digits}
-          onChangeText={setDigits}
-          maxLength={12}
-          autoFocus
-        />
-      </View>
-      {error ? <Text style={styles.err}>{error}</Text> : null}
-      {cleaned.length > 0 && !valid && !error ? (
+      <PhoneNumberField value={digits} onChangeText={(t) => { setError(emptyScreenError()); setDigits(t); }} />
+      {error.message ? <Text style={styles.err}>{error.message}</Text> : null}
+      {error.detail ? <Text style={styles.errDetail}>{error.detail}</Text> : null}
+      {cleaned.length > 0 && !valid && !error.message ? (
         <Text style={styles.err}>Enter a valid Australian mobile (9 digits starting with 4).</Text>
       ) : (
         <Text style={styles.hint}>Australian mobile numbers only for v1 (Greater Melbourne).</Text>
       )}
+      <Pressable onPress={() => navigation.navigate('RecoveryEmail')} style={styles.linkWrap}>
+        <Text style={styles.link}>Lost access to your number?</Text>
+      </Pressable>
+      <Pressable onPress={() => navigation.navigate('EmailLogin')} style={styles.linkWrap}>
+        <Text style={styles.link}>Log in with email instead</Text>
+      </Pressable>
     </KeyboardScreen>
   );
 }
 
-const createStyles = (colors, spacing, font, radius) => StyleSheet.create({
+const createStyles = (colors, spacing, font) => StyleSheet.create({
   body: { paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xl },
   title: { fontSize: font.h1, fontWeight: '800', color: colors.text, marginBottom: spacing.sm },
   sub: { fontSize: font.body, color: colors.textMuted, lineHeight: 22, marginBottom: spacing.xl },
-  phoneRow: { flexDirection: 'row', gap: spacing.sm },
-  prefix: { justifyContent: 'center', paddingHorizontal: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
-  prefixText: { fontSize: font.body, fontWeight: '700', color: colors.text },
-  phoneInput: { flex: 1, fontSize: font.h3, letterSpacing: 1 },
   hint: { fontSize: font.tiny, color: colors.textFaint, marginTop: spacing.sm },
   err: { fontSize: font.tiny, color: colors.danger, marginTop: spacing.sm, fontWeight: '600' },
+  errDetail: { fontSize: font.tiny, color: colors.textMuted, marginTop: 2, fontWeight: '500' },
+  linkWrap: { marginTop: spacing.lg, alignSelf: 'flex-start' },
+  link: { color: colors.primary, fontSize: font.small, fontWeight: '700' },
   footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
+  registerBtn: { marginTop: spacing.sm },
 });

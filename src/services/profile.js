@@ -1,6 +1,14 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { ensureSupabaseUserForPhone } from './auth';
 
+/** Public profile columns — never include email. Matches 012 GRANT SELECT. */
+export const PROFILE_PUBLIC_COLUMNS = [
+  'id', 'phone', 'name', 'suburb', 'photo_url', 'bio', 'verified', 'verified_category',
+  'profession', 'contact', 'is_founding_member', 'newcomer', 'newcomer_since',
+  'digest_mode', 'checklist_card_dismissed', 'followers_count', 'created_at',
+  'updated_at', 'expert_badge_title', 'expert_circle_id', 'email_verified_at',
+].join(', ');
+
 export function normalizePhoneE164(phone) {
   if (!phone) return null;
   const digits = String(phone).replace(/\D/g, '');
@@ -88,7 +96,7 @@ export async function fetchProfile(userId) {
   if (!isSupabaseConfigured() || !userId) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('*')
+    .select(PROFILE_PUBLIC_COLUMNS)
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -103,7 +111,7 @@ export async function updateProfile(patch) {
     .from('profiles')
     .update(patchToRow(patch))
     .eq('id', user.id)
-    .select()
+    .select(PROFILE_PUBLIC_COLUMNS)
     .single();
   if (error) throw error;
   return data;

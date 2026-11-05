@@ -11,6 +11,7 @@ import { NEWCOMER_WINDOW_MS } from '../constants/newcomer';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getSession, onAuthStateChange } from '../services/auth';
 import { fetchProfile, profileMetaFromRow, profileRowToUser } from '../services/profile';
+import { isProfileComplete } from '../utils/email';
 import { fetchLiveBundle, persistAction, shouldSyncAction, isValidUuid } from '../services/liveData';
 import { inflightKeyForAction } from '../utils/dispatchGuards';
 
@@ -102,6 +103,9 @@ function buildInitialState() {
     authReady: !isSupabaseConfigured(),
     authUserId: null,
     currentUserId: null, // null = signed out
+    authHasName: false,
+    authEmailVerified: false,
+    authProfileName: '',
     users: [],
     circles: buildOfficialCircles(),
     joinedCircles: defaultJoinedCircles(),
@@ -149,6 +153,9 @@ function reducer(state, action) {
         checklistCardDismissed: !!p.checklistCardDismissed,
         newcomer: p.newcomer ?? (p.currentUserId === 'me'),
         newcomerSince: p.newcomerSince ?? (p.currentUserId === 'me' ? Date.now() : null),
+        authHasName: !!p.authHasName,
+        authEmailVerified: !!p.authEmailVerified,
+        authProfileName: p.authProfileName || '',
       };
     }
     case 'BOOTED':
@@ -160,8 +167,16 @@ function reducer(state, action) {
     case 'SET_AUTH':
       return { ...state, authUserId: action.userId };
 
+    case 'SET_AUTH_PROFILE':
+      return {
+        ...state,
+        authHasName: !!action.hasName,
+        authEmailVerified: !!action.emailVerified,
+        authProfileName: action.name || state.authProfileName || '',
+      };
+
     case 'CLEAR_AUTH':
-      return { ...state, authUserId: null };
+      return { ...state, authUserId: null, authHasName: false, authEmailVerified: false, authProfileName: '' };
 
     case 'CLEAR_LOCAL_SESSION':
       return { ...state, currentUserId: null };
@@ -173,6 +188,8 @@ function reducer(state, action) {
         ...state,
         authUserId: action.userId,
         currentUserId: 'me',
+        authHasName: true,
+        authEmailVerified: true,
         users: [me, ...state.users.filter((u) => u.id !== 'me' && u.id !== action.userId)],
         following: state.following || [],
         notifications: state.notifications || [],
@@ -200,6 +217,8 @@ function reducer(state, action) {
         ...state,
         authUserId: action.authUserId ?? state.authUserId,
         currentUserId: 'me',
+        authHasName: true,
+        authEmailVerified: true,
         users: [me, ...state.users.filter((u) => u.id !== 'me' && u.id !== action.authUserId)],
         following: state.following || [],
         notifications: state.notifications || [],
@@ -221,7 +240,7 @@ function reducer(state, action) {
       };
 
     case 'LOGOUT':
-      return { ...state, currentUserId: null, authUserId: null };
+      return { ...state, currentUserId: null, authUserId: null, authHasName: false, authEmailVerified: false, authProfileName: '' };
 
     case 'DELETE_ACCOUNT': {
       return buildInitialState();
@@ -703,7 +722,13 @@ export function DataProvider({ children }) {
         if (session?.user) {
           dispatch({ type: 'SET_AUTH', userId: session.user.id });
           const row = await fetchProfile(session.user.id);
-          if (row?.name?.trim()) {
+          dispatch({
+            type: 'SET_AUTH_PROFILE',
+            hasName: !!row?.name?.trim(),
+            emailVerified: !!row?.email_verified_at,
+            name: row?.name || '',
+          });
+          if (isProfileComplete(row)) {
             dispatch({ type: 'RESTORE_SESSION', userId: session.user.id, profile: row });
           } else {
             dispatch({ type: 'CLEAR_LOCAL_SESSION' });
