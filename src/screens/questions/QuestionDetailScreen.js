@@ -29,6 +29,8 @@ import { uploadAnswerPhoto, uploadReplyPhoto } from '../../services/mediaStorage
 import { normalizeDisplayPhotoUrls } from '../../utils/photos';
 import { ENABLE_REPLY_PHOTOS } from '../../constants/media';
 
+// User-facing model: Post → Answers → Replies to an answer (one layer).
+// Internally a "post" is still a question row.
 // Answers and replies accept any length — only an empty body is rejected.
 const ANSWER_COMPOSER = '__answer__';
 
@@ -186,7 +188,7 @@ export default function QuestionDetailScreen({ navigation, route }) {
     }
     if (isMine) {
       options.push({
-        text: 'Delete question',
+        text: 'Delete post',
         style: 'destructive',
         onPress: () => {
           runAfterAlert(async () => {
@@ -194,7 +196,7 @@ export default function QuestionDetailScreen({ navigation, route }) {
             try {
               const res = await dispatch({ type: 'DELETE_QUESTION', questionId });
               if (res?.ok === false) throw res.error || new Error('Could not delete');
-              showToast('Question deleted', { tone: 'success' });
+              showToast('Post deleted', { tone: 'success' });
             } catch (e) {
               Alert.alert('Could not delete', e?.message || 'Try again.');
             }
@@ -202,10 +204,10 @@ export default function QuestionDetailScreen({ navigation, route }) {
         },
       });
     } else {
-      options.push({ text: 'Report question', style: 'destructive', onPress: () => navigate('Report', { kind: 'content', targetTitle: question.title }) });
+      options.push({ text: 'Report post', style: 'destructive', onPress: () => navigate('Report', { kind: 'content', targetTitle: question.title }) });
     }
     options.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert(isMine ? 'Your question' : 'Question options', null, options);
+    Alert.alert(isMine ? 'Your post' : 'Post options', null, options);
   }, [question, isMine, dispatch, questionId, showToast, navigate, goBack, circleById, isCircleCreator]);
 
   const toggleSave = useCallback(async () => {
@@ -244,14 +246,14 @@ export default function QuestionDetailScreen({ navigation, route }) {
     return (
       <MissingParamsFallback
         navigation={navigation}
-        title="This question couldn't be loaded"
+        title="This post couldn't be loaded"
         message="The link may be incomplete or expired. Go back and try opening the post again."
       />
     );
   }
 
   if (!question) {
-    return <View style={styles.container}><Text style={styles.missing}>This question is no longer available.</Text></View>;
+    return <View style={styles.container}><Text style={styles.missing}>This post is no longer available.</Text></View>;
   }
 
   const qAuthor = displayAuthor(userById(question.authorId), question.anonymous);
@@ -610,11 +612,11 @@ export default function QuestionDetailScreen({ navigation, route }) {
     >
         {justPosted && (
           <View style={styles.postedBanner}>
-            <Text style={styles.postedText}>🌿 Your question is live — the community can answer it now.</Text>
+            <Text style={styles.postedText}>🌿 Your post is live — the community can answer it now.</Text>
           </View>
         )}
 
-        {/* Question */}
+        {/* Post */}
         <View style={[styles.qBlock, isExpertPost && styles.qBlockExpert]}>
           {isExpertPost && (
             <View style={styles.expertPostBanner}>

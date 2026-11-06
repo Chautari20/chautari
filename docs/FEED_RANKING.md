@@ -15,9 +15,9 @@ The Hot/New choice is remembered **within a session** only. Cold launch resets t
 
 Only these signals count toward ranking:
 
-- Upvotes on the question
+- Upvotes on the post
 - Number of **answers** (top-level only — not replies)
-- Whether the question has at least one **verified expert** answer (non-anonymous)
+- Whether the post has at least one **verified expert** answer (non-anonymous)
 
 **Do not** use views, reply count, downvotes, last-activity time, or join-circle boosts in the score.
 

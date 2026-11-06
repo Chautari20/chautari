@@ -74,7 +74,7 @@ export default function DeleteAccountScreen({ navigation }) {
           <View style={styles.card}>
             {[
               'Your profile, name, photo and suburb',
-              'Every question and answer you posted',
+              'Every post and answer you made',
               'Your follows, upvotes and notifications',
               ...(user?.verified ? ['Your verified-expert status and badge'] : []),
             ].map((t) => (

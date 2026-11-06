@@ -96,7 +96,7 @@ Statuses: **Built** / **Partial** / **Not started** / **Mocked**.
 |---|---|---|
 | Create | **Built** | `AskComposerScreen.js`, `ASK_QUESTION`. |
 | Edit + “edited” label | **Not started** | No `EDIT_QUESTION` / composer-edit route. |
-| Delete | **Partial** | Own questions only (`DELETE_QUESTION`, `QuestionDetailScreen.js`). CASCADE in DB (`001` answers FK). |
+| Delete | **Partial** | Own posts only (`DELETE_QUESTION`, `QuestionDetailScreen.js`). CASCADE in DB (`001` answers FK). |
 | Up to 5 photos, 5 MB, ≤1920 px | **Built** | `src/constants/media.js`. EXIF not requested (`useImagePicker.js` `exif: false`). |
 | Anonymous | **Partial** | Client flag + `displayAuthor` (`utils/format.js`). DB stores `author_id` on the row (`001`); not hidden from clients with SELECT. |
 | Title 10–120, body 10–4000 | **Partial** | App and DB still **body 30–4000** (`AskComposerScreen.js:27`, `001:105-106`). |
@@ -148,8 +148,8 @@ Statuses: **Built** / **Partial** / **Not started** / **Mocked**.
 
 | Item | Status | Evidence |
 |---|---|---|
-| First 30 Days | **Partial** | 10 tasks in `src/data/checklist.js`; `questionId` is **null** (links not live). Newcomer window 60 days (`constants/newcomer.js`). Progress synced (`checklist_progress`). Team-editable links without app update: **Not started** (catalog is bundled; `checklist_items.question_id` exists in DB but app reads the JS file). |
-| Search + feeds | **Built**, **computed in app** | Search: `SearchScreen.js` over loaded questions. Date chips: 24h / 7d / 30d — **not** PRD “this month / last 3 months / this year”. For You: `src/feed/*` + `useForYouFeed.js`. Following: `store.js` `followingFeed`. |
+| First 30 Days | **Partial** | 10 tasks in `src/data/checklist.js`; `questionId` is **null** (links not live). Newcomer window 60 days (`constants/newcomer.js`). Progress synced (`checklist_progress`). Team-editable links without app update: **Not started** (catalog is bundled; `checklist_items.post_id` exists in DB but app reads the JS file). |
+| Search + feeds | **Built**, **computed in app** | Search: `SearchScreen.js` over loaded posts. Date chips: 24h / 7d / 30d — **not** PRD “this month / last 3 months / this year”. For You: `src/feed/*` + `useForYouFeed.js`. Following: `store.js` `followingFeed`. |
 | In-app notifications | **Partial** | Screen exists; only milestones + digest are written (`digest.js` `ADD_NOTIFICATION`). No write on new answer / expert answer / reply / application decision. DB `notifications` unused by app (`APP_MAP.md` §11). |
 | Push | **Mocked / local only** | `expo-notifications` **scheduled local digest** (`services/digest.js`). No `getExpoPushToken`, no push function. |
 
@@ -181,14 +181,15 @@ Never edit `000–011`. Apply status on hosted DB: **UNVERIFIED**.
 | `001_chautari_schema.sql` | Enums, tables, triggers, RLS | No (create) |
 | `002_seed_reference_data.sql` | 8 official circles + leftover user circles + checklist catalog | No |
 | `003_clear_auth_users.sql` | `DELETE` all `auth.users` / identities | **Yes** |
-| `004_rls_content_updates.sql` | UPDATE on questions/answers/replies for **any authenticated** user (vote bumps) | No (widens writes) |
+| `004_rls_content_updates.sql` | UPDATE on posts/answers/replies for **any authenticated** user (vote bumps) | No (widens writes) |
 | `005_flexible_social_refs.sql` | Loosen FKs for seed ids | No |
 | `006_storage_media.sql` | Photo columns + `media` bucket + storage policies | No |
 | `007_credentials_storage.sql` | `credentials` storage prefix | No |
 | `008_expert_post_mode.sql` | `posted_as_expert`, `profession_label` | No |
 | `009_expert_profile_fields.sql` | `expert_badge_title`, `expert_circle_id` | No |
 | `010_relax_answer_reply_lengths.sql` | Answers/replies: non-empty only | No |
-| `011_clear_seed_content.sql` | Null missing checklist `question_id`; delete empty 002 user circles | Deletes empty seed circles only |
+| `011_clear_seed_content.sql` | Null missing checklist thread ids; delete empty 002 user circles | Deletes empty seed circles only |
+| `014_rename_questions_to_posts.sql` | Rename `questions` → `posts`, `saved_questions` → `saved_posts`, `*question_id` → `*post_id`, enum `post`, storage prefix `posts/` | No (metadata only) |
 | `012_verified_recovery_email.sql` | `profiles.email` / `email_verified_at`; table-level REVOKE then column GRANT; `email_codes`; `recovery_sessions`; `profile_is_complete()` | No (uncommitted; **not applied** from this repo) |
 
 ### Edge functions
@@ -209,10 +210,10 @@ Shared: `_shared/{http,db,codes,email,phone,twilio}.ts`. Deploy/secrets on the p
 | `profiles` | SELECT all; INSERT/UPDATE own. `012` then revokes table SELECT/INSERT/UPDATE from `anon`/`authenticated` and GRANTs columns except `email` (and except `email`+`email_verified_at` on write). |
 | `circles` | SELECT all; INSERT non-official by creator; UPDATE by creator. No DELETE. |
 | `circle_members` | SELECT all; INSERT/DELETE own. |
-| `questions` | SELECT all; INSERT/DELETE own; UPDATE **any authenticated** (`004`). |
+| `posts` (was `questions`; renamed by `014`) | SELECT all; INSERT/DELETE own; UPDATE **any authenticated** (`004`). |
 | `answers` / `replies` | SELECT all; INSERT own; UPDATE **any authenticated** (`004`); **no DELETE**. |
 | `follows` | SELECT all; INSERT/DELETE as follower. |
-| `saved_questions` | Own SELECT/INSERT/DELETE. |
+| `saved_posts` (was `saved_questions`) | Own SELECT/INSERT/DELETE. |
 | `upvotes` | SELECT all; INSERT/DELETE own. |
 | `notifications` | Own SELECT/UPDATE; **no INSERT policy** (app does not write this table). |
 | `reports` | INSERT own; **no SELECT** for clients. |
@@ -230,7 +231,7 @@ Storage `media`: public read; authenticated write under `<prefix>/<auth.uid()>/`
 
 | Rule | Where |
 |---|---|
-| Question title 10–120, body 30–4000 (not PRD 10–4000) | **Both** — UI `AskComposerScreen.js`; CHECK `001`. |
+| Post title 10–120, body 30–4000 (not PRD 10–4000) | **Both** — UI `AskComposerScreen.js`; CHECK `001`. |
 | Answer/reply non-empty | **Both** — UI `QuestionDetailScreen.js`; CHECK `010`. |
 | Answer/reply max length | **Neither** after `010`. |
 | Daily post caps 5 / expert 2 | **App only** — `store.js` reducer + composer alerts. Not in SQL. |
@@ -242,7 +243,7 @@ Storage `media`: public read; authenticated write under `<prefix>/<auth.uid()>/`
 | Karma | **App only** — `utils/karma.js`. |
 | Blocking | **Neither**. |
 | Edit own content | **Neither** (no edit UI; `004` lets any auth user UPDATE any Q/A/R row). |
-| Delete own question | **Both** — reducer + DELETE policy own questions. |
+| Delete own post | **Both** — reducer + DELETE policy own posts. |
 | Delete own answer/reply | **Neither**. |
 | Email / `email_verified_at` writes | **Database** (after `012`) + trigger `protect_profile_email_columns`; clients go through edge functions. |
 | Phone change | **App + Auth API** + recovery function (`auth.admin.updateUserById`). |
@@ -293,4 +294,4 @@ Storage `media`: public read; authenticated write under `<prefix>/<auth.uid()>/`
 
 ## 10-line summary
 
-The mobile app is a working Expo 58 prototype on live Supabase for Q&A, circles, follows, saves, and upvotes, with client-side For You/Following feeds. Recovery email (sign-up, resume, lost-number, Settings) is implemented in the working tree but uncommitted, undeployed, and `012` is unapplied. Phone OTP has a real Twilio/Supabase path that is **off by default** (mock OTP). Biggest gaps vs PRD v1.2: **(1)** no admin/moderator web app; **(2)** no edit/delete for answers/replies, no post edit, no mark-resolved, no block list; **(3)** experts auto-approve with no credential review; **(4)** no remote push and almost no in-app events except local milestones/digest; **(5)** rules that must be server-side (karma, caps, anonymity, vote updates, verified flag, 7 official circles, body 10–4000, no +25 bonus) are still app-only or wrong. Risky: `004` lets any signed-in user UPDATE any question/answer/reply; account delete is local+signOut; email/phone recovery depends on secrets and deploys that this repo cannot confirm.
+The mobile app is a working Expo 58 prototype on live Supabase for posts/answers/replies, circles, follows, saves, and upvotes, with client-side For You/Following feeds. Recovery email (sign-up, resume, lost-number, Settings) is implemented in the working tree but uncommitted, undeployed, and `012` is unapplied. Phone OTP has a real Twilio/Supabase path that is **off by default** (mock OTP). Biggest gaps vs PRD v1.2: **(1)** no admin/moderator web app; **(2)** no edit/delete for answers/replies, no post edit, no mark-resolved, no block list; **(3)** experts auto-approve with no credential review; **(4)** no remote push and almost no in-app events except local milestones/digest; **(5)** rules that must be server-side (karma, caps, anonymity, vote updates, verified flag, 7 official circles, body 10–4000, no +25 bonus) are still app-only or wrong. Risky: `004` lets any signed-in user UPDATE any post/answer/reply; account delete is local+signOut; email/phone recovery depends on secrets and deploys that this repo cannot confirm.

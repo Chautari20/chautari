@@ -167,7 +167,7 @@ function AppNavigator() {
         ) : (
           <Stack.Group>
             <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false, animation: 'fade' }} />
-            <Stack.Screen name="QuestionDetail" component={QuestionDetailScreen} options={{ title: 'Question' }} />
+            <Stack.Screen name="QuestionDetail" component={QuestionDetailScreen} options={{ title: 'Post' }} />
             <Stack.Screen name="CircleDetail" component={CircleDetailScreen} options={{ title: '' }} />
             <Stack.Screen
               name="CirclesSectionSeeAll"
@@ -197,7 +197,7 @@ function AppNavigator() {
             <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: 'Delete account' }} />
 
             <Stack.Group screenOptions={modalOptions}>
-              <Stack.Screen name="AskComposer" component={AskComposerScreen} options={{ title: 'Post a question' }} />
+              <Stack.Screen name="AskComposer" component={AskComposerScreen} options={{ title: 'New post' }} />
               <Stack.Screen name="Report" component={ReportScreen} options={{ title: 'Report' }} />
               <Stack.Screen name="ImageViewer" component={ImageViewerScreen} options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
               <Stack.Screen name="ProfilePhotoPreview" component={ProfilePhotoPreviewScreen} options={profilePhotoPreviewOptions} />

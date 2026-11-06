@@ -33,6 +33,7 @@ Apply in order. Never edit `000`–`012`.
 # from chautari-test/  (or paste the SQL in Dashboard → SQL Editor)
 node supabase/run-migrations.js 012
 node supabase/run-migrations.js 013
+node supabase/run-migrations.js 014   # questions → posts rename
 ```
 
 ## Deploy

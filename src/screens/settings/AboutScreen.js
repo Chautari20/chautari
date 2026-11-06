@@ -20,7 +20,7 @@ export default function AboutScreen() {
 
       <DocSection heading="What is a chautari?">
         <DocParagraph>
-          A “chautari” is the shaded resting place under a tree where villagers gather to talk, rest and share news. This app carries that spirit online — a place for the Nepali community in Australia to post questions and help each other.
+          A “chautari” is the shaded resting place under a tree where villagers gather to talk, rest and share news. This app carries that spirit online — a place for the Nepali community in Australia to post and help each other.
         </DocParagraph>
       </DocSection>
       <DocSection heading="Who it's for">

@@ -97,6 +97,6 @@ export function mapCircle(row, currentUserId) {
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     isOfficial: !!row.is_official,
     isPrivate: false,
-    pinnedQuestionId: row.pinned_question_id || null,
+    pinnedQuestionId: row.pinned_post_id || null,
   };
 }

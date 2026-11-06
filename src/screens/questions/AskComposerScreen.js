@@ -217,7 +217,7 @@ export default function AskComposerScreen({ navigation, route }) {
     }
     if (!valid || posting) return;
     if (!online) {
-      Alert.alert('No connection', 'You’re offline. Reconnect to post your question — your draft stays here.');
+      Alert.alert('No connection', 'You’re offline. Reconnect to publish your post — your draft stays here.');
       return;
     }
     if (photos.some((p) => p.uploading)) return;
@@ -240,7 +240,7 @@ export default function AskComposerScreen({ navigation, route }) {
         postedAsExpert: user?.verified ? postedAsExpert : undefined,
         professionLabel: user?.verified && postedAsExpert ? badgeTitle : undefined,
       });
-      if (res?.ok === false) throw res.error || new Error('Could not post question');
+      if (res?.ok === false) throw res.error || new Error('Could not publish post');
       Animated.timing(success, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
       // Dismiss the composer modal, then push detail on the root stack.
       // `replace` from the modal group left a shallow/dead stack where back was a no-op.
@@ -268,7 +268,7 @@ export default function AskComposerScreen({ navigation, route }) {
         footer={(
           <View style={styles.footer}>
             <Button
-              title={atCurrentModeLimit ? 'Daily limit reached' : posting ? 'Posting…' : 'Post question'}
+              title={atCurrentModeLimit ? 'Daily limit reached' : posting ? 'Posting…' : 'Publish post'}
               icon="✍️"
               onPress={submit}
               disabled={atCurrentModeLimit || posting || (touched && !valid)}
@@ -279,7 +279,7 @@ export default function AskComposerScreen({ navigation, route }) {
         <ExpertPostQuota variant="banner" />
 
         <Field
-          label="Your question"
+          label="Title"
           error={touched && !titleOk ? `Keep the title between ${TITLE_MIN} and ${TITLE_MAX} characters.` : null}
         >
           <Input placeholder="e.g. Can I apply for a 485 visa before my results are out?" value={title} onChangeText={setTitle} maxLength={TITLE_MAX + 20} />
@@ -318,7 +318,7 @@ export default function AskComposerScreen({ navigation, route }) {
         ) : null}
 
         {!postedAsExpert ? (
-          <Field label="Circle" error={touched && !circleId ? 'Pick a circle for your question.' : null}>
+          <Field label="Circle" error={touched && !circleId ? 'Pick a circle for your post.' : null}>
             <Input
               placeholder="Search circles…"
               value={circleQuery}
@@ -361,7 +361,7 @@ export default function AskComposerScreen({ navigation, route }) {
               <Text style={styles.anonSub}>
                 {postedAsExpert
                   ? 'Not available when posting as a professional — your verified identity is shown.'
-                  : 'Your name, photo and suburb stay hidden on this question.'}
+                  : 'Your name, photo and suburb stay hidden on this post.'}
               </Text>
             </View>
             <Switch
@@ -395,7 +395,7 @@ export default function AskComposerScreen({ navigation, route }) {
       <PhotoSourceSheet
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Add question photo"
+        title="Add post photo"
         onLibrary={pickQuestionPhotos}
       />
 

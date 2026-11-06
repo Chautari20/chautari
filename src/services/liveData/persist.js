@@ -27,14 +27,17 @@ async function bumpVotes(table, id, delta) {
   if (error) throw error;
 }
 
+// DB upvote_target enum: 'post' | 'answer' | 'reply' (014 renamed 'question' → 'post')
+const UPVOTE_TABLE = { post: 'posts', answer: 'answers', reply: 'replies' };
+
 async function toggleUpvote(userId, targetType, targetId, hadVote) {
+  const table = UPVOTE_TABLE[targetType];
   if (hadVote) {
     const { error } = await supabase.from('upvotes').delete()
       .eq('user_id', userId)
       .eq('target_type', targetType)
       .eq('target_id', targetId);
     if (error && !isBenignDuplicateError(error)) throw error;
-    const table = targetType === 'question' ? 'questions' : targetType === 'answer' ? 'answers' : 'replies';
     await bumpVotes(table, targetId, -1);
   } else {
     const { error } = await supabase.from('upvotes').insert({
@@ -43,7 +46,6 @@ async function toggleUpvote(userId, targetType, targetId, hadVote) {
       target_id: targetId,
     });
     if (error && !isBenignDuplicateError(error)) throw error;
-    const table = targetType === 'question' ? 'questions' : targetType === 'answer' ? 'answers' : 'replies';
     await bumpVotes(table, targetId, 1);
   }
 }
@@ -56,7 +58,7 @@ export async function persistAction(action, state, userId) {
     case 'ASK_QUESTION': {
       const postedAsExpert = !!action.postedAsExpert;
       const anonymous = postedAsExpert ? false : !!action.anonymous;
-      const questionRow = {
+      const postRow = {
         id: action.id,
         circle_id: action.circleId,
         author_id: userId,
@@ -66,10 +68,10 @@ export async function persistAction(action, state, userId) {
         photos: sanitizePhotoUrlsForStorage(action.photos || []),
       };
       if (action.postedAsExpert != null) {
-        questionRow.posted_as_expert = !!action.postedAsExpert;
-        questionRow.profession_label = action.professionLabel || null;
+        postRow.posted_as_expert = !!action.postedAsExpert;
+        postRow.profession_label = action.professionLabel || null;
       }
-      const { error } = await supabase.from('questions').insert(questionRow);
+      const { error } = await supabase.from('posts').insert(postRow);
       if (error) throw error;
       return action;
     }
@@ -78,7 +80,7 @@ export async function persistAction(action, state, userId) {
       const id = action.id || makeId('a');
       const { error } = await supabase.from('answers').insert({
         id,
-        question_id: action.questionId,
+        post_id: action.questionId,
         author_id: userId,
         anonymous: !!action.anonymous,
         body: action.body.trim(),
@@ -108,14 +110,14 @@ export async function persistAction(action, state, userId) {
     }
 
     case 'DELETE_QUESTION': {
-      const { error } = await supabase.from('questions').delete().eq('id', action.questionId).eq('author_id', userId);
+      const { error } = await supabase.from('posts').delete().eq('id', action.questionId).eq('author_id', userId);
       if (error) throw error;
       return action;
     }
 
     case 'TOGGLE_UPVOTE_QUESTION': {
       const had = state.myUpvotes.questions.includes(action.questionId);
-      await toggleUpvote(userId, 'question', action.questionId, had);
+      await toggleUpvote(userId, 'post', action.questionId, had);
       return action;
     }
 
@@ -149,13 +151,13 @@ export async function persistAction(action, state, userId) {
     case 'TOGGLE_SAVE_QUESTION': {
       const had = state.savedQuestions.includes(action.questionId);
       if (had) {
-        const { error } = await supabase.from('saved_questions').delete()
-          .eq('user_id', userId).eq('question_id', action.questionId);
+        const { error } = await supabase.from('saved_posts').delete()
+          .eq('user_id', userId).eq('post_id', action.questionId);
         if (error && !isBenignDuplicateError(error)) throw error;
       } else {
-        const { error } = await supabase.from('saved_questions').insert({
+        const { error } = await supabase.from('saved_posts').insert({
           user_id: userId,
-          question_id: action.questionId,
+          post_id: action.questionId,
         });
         if (error && !isBenignDuplicateError(error)) throw error;
       }
@@ -236,7 +238,7 @@ export async function persistAction(action, state, userId) {
 
     case 'PIN_QUESTION_TO_CIRCLE': {
       const { error } = await supabase.from('circles').update({
-        pinned_question_id: action.questionId,
+        pinned_post_id: action.questionId,
       }).eq('id', action.circleId).eq('creator_id', userId);
       if (error) throw error;
       return action;
@@ -244,7 +246,7 @@ export async function persistAction(action, state, userId) {
 
     case 'UNPIN_QUESTION_FROM_CIRCLE': {
       const { error } = await supabase.from('circles').update({
-        pinned_question_id: null,
+        pinned_post_id: null,
       }).eq('id', action.circleId).eq('creator_id', userId);
       if (error) throw error;
       return action;

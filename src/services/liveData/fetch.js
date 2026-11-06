@@ -18,7 +18,7 @@ function warnFetch(label, error) {
   console.warn(`[fetchLiveBundle] ${label}:`, error?.message || error);
 }
 
-/** Collect author UUIDs from question rows — skip any non-uuid id. */
+/** Collect author UUIDs from post rows — skip any non-uuid id. */
 function collectAuthorUuids(rows, into) {
   for (const q of rows || []) {
     if (isValidUuid(q.author_id)) into.add(q.author_id);
@@ -50,7 +50,7 @@ export async function fetchLiveBundle(currentUserId) {
     checklistRes,
   ] = await Promise.all([
     supabase
-      .from('questions')
+      .from('posts')
       .select('*, answers(*, replies(*))')
       .order('created_at', { ascending: false }),
     supabase
@@ -59,19 +59,19 @@ export async function fetchLiveBundle(currentUserId) {
       .eq('is_official', false)
       .order('created_at', { ascending: false }),
     supabase.from('upvotes').select('target_type, target_id').eq('user_id', currentUserId),
-    supabase.from('saved_questions').select('question_id').eq('user_id', currentUserId),
+    supabase.from('saved_posts').select('post_id').eq('user_id', currentUserId),
     supabase.from('follows').select('following_id').eq('follower_id', currentUserId),
     supabase.from('circle_members').select('circle_id').eq('user_id', currentUserId),
     supabase.from('checklist_progress').select('item_id').eq('user_id', currentUserId),
   ]);
 
   if (questionsRes.error) {
-    warnFetch('questions', questionsRes.error);
+    warnFetch('posts', questionsRes.error);
     throw questionsRes.error;
   }
   if (circlesRes.error) warnFetch('circles', circlesRes.error);
   if (upvotesRes.error) warnFetch('upvotes', upvotesRes.error);
-  if (savedRes.error) warnFetch('saved_questions', savedRes.error);
+  if (savedRes.error) warnFetch('saved_posts', savedRes.error);
   if (followsRes.error) warnFetch('follows', followsRes.error);
   if (membersRes.error) warnFetch('circle_members', membersRes.error);
   if (checklistRes.error) warnFetch('checklist_progress', checklistRes.error);
@@ -103,7 +103,7 @@ export async function fetchLiveBundle(currentUserId) {
 
   const myUpvotes = { questions: [], answers: [], replies: [] };
   for (const row of upvotesRes.data || []) {
-    if (row.target_type === 'question') myUpvotes.questions.push(row.target_id);
+    if (row.target_type === 'post') myUpvotes.questions.push(row.target_id);
     else if (row.target_type === 'answer') myUpvotes.answers.push(row.target_id);
     else if (row.target_type === 'reply') myUpvotes.replies.push(row.target_id);
   }
@@ -113,7 +113,7 @@ export async function fetchLiveBundle(currentUserId) {
     users,
     circles,
     myUpvotes,
-    savedQuestions: (savedRes.data || []).map((r) => r.question_id),
+    savedQuestions: (savedRes.data || []).map((r) => r.post_id),
     // Mock follows (u_*) may exist in follows.following_id (TEXT) — never merge those into state.
     following: (followsRes.data || [])
       .map((r) => r.following_id)

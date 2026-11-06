@@ -12,7 +12,7 @@ Reuse your **existing Supabase project** (same project URL, anon key, JWT secret
 ## What gets destroyed
 
 - All tables in the `public` schema from the old model
-- All rows (questions, users, etc.)
+- All rows (posts, users, etc.)
 - All **Authentication users** (if you run `003_clear_auth_users.sql`)
 
 ## Run order (Supabase Dashboard → SQL Editor)
@@ -32,9 +32,14 @@ Run each file **in order**, one at a time. Check the result panel shows success 
 | 9 | `migrations/008_expert_post_mode.sql` | Expert post / reply columns |
 | 10 | `migrations/009_expert_profile_fields.sql` | Expert badge + circle on profiles |
 | 11 | `migrations/010_relax_answer_reply_lengths.sql` | Answers and replies: any non-empty body |
-| 12 | `migrations/011_clear_seed_content.sql` | Null dangling checklist `question_id`; delete empty 002 seed user circles |
+| 12 | `migrations/011_clear_seed_content.sql` | Null dangling checklist thread ids; delete empty 002 seed user circles |
 | 13 | `migrations/012_verified_recovery_email.sql` | Recovery email columns, `email_codes`, `recovery_sessions` |
 | 14 | `migrations/013_auth_lookup_and_email_login.sql` | `auth_checks`, email-login purpose, `profiles_phone_idx` |
+| 15 | `migrations/014_rename_questions_to_posts.sql` | **Terminology:** `questions` → `posts`, `saved_questions` → `saved_posts`, `*question_id` → `*post_id`, upvote enum `post`, storage prefix `posts/` |
+
+### Terminology (after migration 014)
+
+The product model is **Post → Answers → Replies** (a reply belongs to an answer, one level deep). The database uses the same words: `posts`, `answers`, `replies`. Older migrations (001–011) still say `questions` because applied migrations are never edited — 014 renames everything in place without touching data.
 
 ### Storage — `media` bucket (migration 006)
 
@@ -43,7 +48,7 @@ Run `006_storage_media.sql` after the schema migrations. It creates a **public**
 | Prefix | Example path | Use |
 |--------|----------------|-----|
 | `avatars/{userId}/…` | `avatars/uuid/profile/avatar-123.jpg` | Profile photo |
-| `questions/{userId}/{questionId}/…` | `questions/uuid/q_abc/0.jpg` | Question photos (up to 5) |
+| `posts/{userId}/{postId}/…` | `posts/uuid/q_abc/0.jpg` | Post photos (up to 5). Objects uploaded before 014 live under `questions/…` and stay readable |
 | `circles/{userId}/{circleId}/…` | `circles/uuid/c_xyz/banner.jpg` | Circle banner |
 | `answers/{userId}/{answerId}/…` | `answers/uuid/a_123/photo.jpg` | Answer photo (prototype flag) |
 | `replies/{userId}/{replyId}/…` | `replies/uuid/r_456/photo.jpg` | Reply photo (prototype flag) |
@@ -81,8 +86,8 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key...
 auth.users
     └── profiles (1:1)
 circles ← circle_members → profiles
-questions → answers → replies
-follows · saved_questions · upvotes
+posts → answers → replies
+follows · saved_posts · upvotes
 notifications · reports · expert_applications
 checklist_items · checklist_progress
 ```

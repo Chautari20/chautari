@@ -9,8 +9,8 @@ const { width } = Dimensions.get('window');
 // Welcome 1 + Welcome 2 value-prop slides with a Continue button.
 const SLIDES = [
   { icon: '💬', title: 'Real answers from your community', body: 'Post anything about visas, tax, housing, health or life in Australia — and hear from people who have actually been there.' },
-  { icon: '🎓', title: 'Verified local experts', body: 'Migration agents, accountants, GPs and brokers answer questions and build their reputation. Look for the verified badge.' },
-  { icon: '🤝', title: 'Post freely — even anonymously', body: 'Some questions feel personal. Post anonymously any time and your name, photo and suburb stay hidden.' },
+  { icon: '🎓', title: 'Verified local experts', body: 'Migration agents, accountants, GPs and brokers answer posts and build their reputation. Look for the verified badge.' },
+  { icon: '🤝', title: 'Post freely — even anonymously', body: 'Some topics feel personal. Post anonymously any time and your name, photo and suburb stay hidden.' },
 ];
 
 export default function WelcomeScreen({ navigation }) {

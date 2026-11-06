@@ -160,7 +160,7 @@ export default function HomeScreen({ navigation }) {
       {tab === 'foryou' && newToday > 0 && (
         <View style={styles.livePill}>
           <PulseDot size={7} color={colors.live} />
-          <Text style={styles.liveText}>{newToday} new {newToday === 1 ? 'question' : 'questions'} today</Text>
+          <Text style={styles.liveText}>{newToday} new {newToday === 1 ? 'post' : 'posts'} today</Text>
         </View>
       )}
       {tab === 'foryou' ? (
@@ -228,7 +228,7 @@ export default function HomeScreen({ navigation }) {
                 icon="🌱"
                 title="The chautari is quiet"
                 subtitle="Be the first to post. Someone in the community will know the answer."
-                action={{ label: 'Post a question', onPress: openAsk }}
+                action={{ label: 'Create a post', onPress: openAsk }}
               />
             )
           }
@@ -269,7 +269,7 @@ function FollowingEmpty({ experts, navigate, userById, navigation, authUserId })
       <EmptyState
         icon="🤝"
         title="Build your feed"
-        subtitle="Follow experts and members to see their questions and answers here first."
+        subtitle="Follow experts and members to see their posts and answers here first."
       />
       {experts.length > 0 && (
         <View style={styles.suggestWrap}>

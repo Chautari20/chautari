@@ -71,7 +71,7 @@ export default function QuestionFeedList({
 
   const empty = useMemo(
     () => ListEmptyComponent || (
-      <EmptyState icon="🌿" title="No questions yet" subtitle="Be the first to post in this category." />
+      <EmptyState icon="🌿" title="No posts yet" subtitle="Be the first to post in this category." />
     ),
     [ListEmptyComponent],
   );

@@ -12,11 +12,11 @@ The ONE feeling: "This is alive"
 Every decision serves one goal: a first-time user must feel, within 30 seconds, that this place is active and people are answering right now. This is primarily a SIGNALS problem, not decoration. Implement these "alive" signals throughout:
 
 Relative timestamps everywhere: "just now", "4 min ago", "2 hr ago". Never raw dates in the feed.
-Live-feeling answer counts: each question card shows answer count and, if an expert answered, a distinct "Expert answered" marker with visual weight (badge + subtle accent), not just text.
+Live-feeling answer counts: each post card shows answer count and, if an expert answered, a distinct "Expert answered" marker with visual weight (badge + subtle accent), not just text.
 Recency motion: new/recent cards get a subtle entrance animation (fade + slight rise, ~250ms, staggered). Use React Native Animated or Reanimated if available; keep it tasteful, never bouncy/childish.
-"Answered fast" cue: if a question got its first answer quickly, surface it ("First answer in 18 min") — reinforces that asking here gets results.
+"Answered fast" cue: if a post got its first answer quickly, surface it ("First answer in 18 min") — reinforces that posting here gets results.
 Activity texture: a thin, quiet "live" indicator on the For You tab (e.g. a soft pulsing dot near a "X new today" pill). Subtle, not a casino.
-Optimistic UI: posting a question/answer/upvote reflects instantly before the mock "saves". Makes it feel responsive and real.
+Optimistic UI: posting a post/answer/upvote reflects instantly before the mock "saves". Makes it feel responsive and real.
 
 Visual language: modern, with subtle Nepali warmth
 Mostly clean and modern. Identity shows through warmth and small touches, NOT heavy motifs.
@@ -31,30 +31,30 @@ PRIORITY: polish the core flow to exceptional
 If time runs short, the feed → ask → answer loop must be flawless before anything else. Spend disproportionate effort here.
 Home Feed (For You + Following)
 
-Question cards are the heart. Each card: asker (or "Anonymous" + placeholder), suburb chip, category chip, relative time, title (prominent), 1–2 line body preview, answer count, upvote count, and the "Expert answered" marker when applicable. Expert-answered cards get subtle elevated treatment.
+Post cards are the heart. Each card: author (or "Anonymous" + placeholder), suburb chip, category chip, relative time, title (prominent), 1–2 line body preview, answer count, upvote count, and the "Expert answered" marker when applicable. Expert-answered cards get subtle elevated treatment.
 For You = smart mix; Following = followed only with a warm empty state if following no one ("Follow experts and members to build your feed" + 2–3 suggested experts inline).
 Pull-to-refresh that feels good. Staggered card entrance on load.
-A prominent, thumb-friendly "Ask" FAB that feels inviting, not generic.
+A prominent, thumb-friendly "Post" FAB that feels inviting, not generic.
 
-Ask Composer
+Post Composer
 
-This is where Askers commit. Reduce friction and anxiety. Live character counts that turn warm-green when valid, not punishing red. Category as friendly chips, not a dull dropdown. Anonymous toggle presented as SAFE and clear ("Ask anonymously — your name, photo, and suburb stay hidden"), with a tiny preview of how the post will appear. Photo attach up to 5 with clean thumbnails. Posting shows optimistic success + a satisfying confirmation, then drops them into the live thread.
+This is where posters commit. Reduce friction and anxiety. Live character counts that turn warm-green when valid, not punishing red. Category as friendly chips, not a dull dropdown. Anonymous toggle presented as SAFE and clear ("Post anonymously — your name, photo, and suburb stay hidden"), with a tiny preview of how the post will appear. Photo attach up to 5 with clean thumbnails. Posting shows optimistic success + a satisfying confirmation, then drops them into the live thread.
 
-Question Detail + Answering
+Post Detail + Answering
 
-Question at top, full and readable. Verified-expert answers PINNED above community answers with clear visual hierarchy (expert badge, accent border/tint). Community answers below, sortable by upvotes/recency. One-level threaded replies. Upvote interaction is instant and satisfying (subtle scale/heart-fill animation; saffron flash at a milestone). Answer composer as a clean modal with link insertion and the same safe anonymous toggle.
+Post at top, full and readable. Verified-expert answers PINNED above community answers with clear visual hierarchy (expert badge, accent border/tint). Community answers below, sortable by upvotes/recency. One-level threaded replies. Upvote interaction is instant and satisfying (subtle scale/heart-fill animation; saffron flash at a milestone). Answer composer as a clean modal with link insertion and the same safe anonymous toggle.
 
 Engagement mechanics (secondary, but make these delightful)
 
 Upvotes: instant, tactile, with milestone moments (5/10/20/50/100/200/500) that feel rewarding — a brief saffron celebration + a milestone notification entry. Never spammy.
 Follow/unfollow: one-tap, optimistic, with a warm confirmation. Following count visible.
-Notifications screen: rich, grouped, with the distinct "An expert answered your question" notification visually elevated above ordinary ones. Unread state clear; mark-read on view.
+Notifications screen: rich, grouped, with the distinct "An expert answered your post" notification visually elevated above ordinary ones. Unread state clear; mark-read on view.
 First-letter avatars: auto-generated, colorful-but-tasteful, deterministic per name. Anonymous = neutral placeholder.
 
 Seed data (make it feel alive on launch)
 
-~20–25 questions across all 8 categories, with realistic Nepali-Australian context (visa 485/PR questions, tax/super, finding a GP, rental applications, mortgage as a temp resident, IT job hunting in Melbourne, etc.). Varied relative timestamps (some "just now", some hours/days old).
-~40–60 answers spread across them; several questions with a pinned verified-expert answer.
+~20–25 posts across all 8 categories, with realistic Nepali-Australian context (visa 485/PR topics, tax/super, finding a GP, rental applications, mortgage as a temp resident, IT job hunting in Melbourne, etc.). Varied relative timestamps (some "just now", some hours/days old).
+~40–60 answers spread across them; several posts with a pinned verified-expert answer.
 5–6 verified experts with believable profiles (a MARA migration agent, an accountant, a GP, a mortgage broker, an IT professional), bios, suburbs, follower counts, and a few expert posts each.
 A handful of community answerers. Realistic upvote counts (a few near milestones to show the mechanic).
 The signed-in user starts following 1–2 experts so the Following tab isn't empty.
@@ -64,11 +64,11 @@ Skip only what genuinely needs server/3rd-party work: real OTP delivery, real pu
 Quality bar / definition of done
 
 App bundles and runs via npx expo start with zero errors.
-The feed → ask → answer loop is genuinely polished: animations, optimistic updates, empty/loading/error states all handled.
+The feed → post → answer loop is genuinely polished: animations, optimistic updates, empty/loading/error states all handled.
 Every listed screen is reachable and functional against mock data.
 Consistent theme tokens; no hardcoded one-off colors.
 README explains: what's implemented, what's mocked and why, the design decisions made, and how to run it.
 Code is clean, componentized, and commented where non-obvious.
 
 What "exceptional" means here (so you don't default to generic)
-Exceptional is NOT gradients, glassmorphism, or confetti everywhere. It is: tight visual hierarchy, restraint, meaningful motion that signals "alive", microcopy that feels human and Nepali-warm, empty states that invite action, and a feed that makes someone think "people are actually here, I'll ask my question." Aim for something that would make a Melbourne Nepali grad trust it and come back.
+Exceptional is NOT gradients, glassmorphism, or confetti everywhere. It is: tight visual hierarchy, restraint, meaningful motion that signals "alive", microcopy that feels human and Nepali-warm, empty states that invite action, and a feed that makes someone think "people are actually here, I'll post mine." Aim for something that would make a Melbourne Nepali grad trust it and come back.

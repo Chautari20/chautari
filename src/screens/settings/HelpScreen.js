@@ -6,23 +6,23 @@ import { useTheme } from '../../theme/ThemeContext';
 const FAQ = [
   {
     q: 'Is Chautari free to use?',
-    a: 'Yes. Posting questions, answering, following and browsing experts are all free. Verified experts may offer paid services off-platform, but the community Q&A is free.',
+    a: 'Yes. Posting, answering, following and browsing experts are all free. Verified experts may offer paid services off-platform, but the community itself is free.',
   },
   {
     q: 'How does anonymous posting work?',
-    a: 'When you toggle “anonymous” on a question or answer, your name, photo and suburb are hidden and you appear as “Anonymous” with a neutral avatar. You can mix anonymous and named posts freely.',
+    a: 'When you toggle “anonymous” on a post or answer, your name, photo and suburb are hidden and you appear as “Anonymous” with a neutral avatar. You can mix anonymous and named posts freely.',
   },
   {
     q: 'What does the verified badge mean?',
-    a: 'A verified expert has submitted credentials (e.g. a MARA number, CPA, or AHPRA registration) for review. Their answers are pinned to the top of a thread and marked with a badge so you can weigh credibility.',
+    a: 'A verified expert has submitted credentials (e.g. a MARA number, CPA, or AHPRA registration) for review. Their answers are pinned to the top of a post and marked with a badge so you can weigh credibility.',
   },
   {
     q: 'How do I become a verified expert?',
     a: 'Go to your profile and tap “Become a Verified Expert”, choose your area of expertise, and upload your credentials. In this prototype, applications are auto-approved instantly.',
   },
   {
-    q: 'Can I edit or delete a question after posting?',
-    a: 'Editing posts is not available in this version. You can delete your own questions from the question’s “⋯” menu. Answers and replies stay to preserve the conversation.',
+    q: 'Can I edit or delete a post after publishing?',
+    a: 'Editing posts is not available in this version. You can delete your own posts from the post’s “⋯” menu. Answers and replies stay to preserve the conversation.',
   },
   {
     q: 'How are upvotes counted?',
@@ -30,7 +30,7 @@ const FAQ = [
   },
   {
     q: 'I saw something inappropriate. What do I do?',
-    a: 'Use the “⋯” menu on any question, answer, or expert profile to report it with a reason. Reports go to moderation (mocked in this prototype).',
+    a: 'Use the “⋯” menu on any post, answer, or expert profile to report it with a reason. Reports go to moderation (mocked in this prototype).',
   },
   {
     q: 'How do I delete my account?',
@@ -58,7 +58,7 @@ export default function HelpScreen() {
   const [open, setOpen] = useState(0);
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.lg }}>
-      <Text style={styles.lead}>Common questions about using Chautari. Tap a question to expand it.</Text>
+      <Text style={styles.lead}>Common things people ask about Chautari. Tap one to expand it.</Text>
       {FAQ.map((item, i) => (
         <FaqItem key={i} item={item} open={open === i} onToggle={() => setOpen(open === i ? -1 : i)} />
       ))}
