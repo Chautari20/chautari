@@ -57,17 +57,20 @@ export default function ProfileSuburbScreen({ navigation, route }) {
         photoUrlValue = await uploadAvatar({ uri: photoUrlValue });
       }
       let authUserId = state.authUserId;
+      let foundingMemberNumber = null;
       if (isSupabaseConfigured()) {
-        authUserId = await completeOnboarding({
+        const completed = await completeOnboarding({
           name,
           suburb,
           photo: photoUrlValue,
           newcomer,
           phone: route.params?.phoneE164 || route.params?.phone,
         });
+        authUserId = completed?.userId ?? null;
+        foundingMemberNumber = completed?.foundingMemberNumber ?? null;
         if (authUserId) dispatch({ type: 'SET_AUTH', userId: authUserId });
       }
-      dispatch({ type: 'SIGN_UP', name, newcomer, authUserId });
+      dispatch({ type: 'SIGN_UP', name, newcomer, authUserId, foundingMemberNumber });
       if (suburb || photoUrlValue) dispatch({ type: 'UPDATE_PROFILE', patch: { suburb, photo: photoUrlValue } });
     } catch (e) {
       setError(e?.message || 'Could not save profile. Try again.');

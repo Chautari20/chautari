@@ -212,6 +212,7 @@ function reducer(state, action) {
         followers: 0,
         createdAt: Date.now(),
         isFoundingMember: true,
+        foundingMemberNumber: action.foundingMemberNumber ?? null,
       };
       return {
         ...state,

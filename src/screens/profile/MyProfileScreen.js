@@ -69,7 +69,7 @@ export default function MyProfileScreen({ navigation }) {
           <View style={styles.nameRow}>
             <Text style={styles.name}>{user?.name || 'You'}</Text>
             {user?.verified ? <VerifiedBadge compact /> : null}
-            {user?.isFoundingMember ? <FoundingMemberBadge /> : null}
+            {user?.isFoundingMember ? <FoundingMemberBadge number={user.foundingMemberNumber} /> : null}
             <KarmaBadge karma={karmaFor('me')} />
           </View>
           {user?.suburb ? <Text style={styles.suburb}>📍 {user.suburb}</Text> : null}

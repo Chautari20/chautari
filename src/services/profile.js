@@ -4,7 +4,7 @@ import { ensureSupabaseUserForPhone } from './auth';
 /** Public profile columns — never include email. Matches 012 GRANT SELECT. */
 export const PROFILE_PUBLIC_COLUMNS = [
   'id', 'phone', 'name', 'suburb', 'photo_url', 'bio', 'verified', 'verified_category',
-  'profession', 'contact', 'is_founding_member', 'newcomer', 'newcomer_since',
+  'profession', 'contact', 'is_founding_member', 'founding_member_number', 'newcomer', 'newcomer_since',
   'digest_mode', 'checklist_card_dismissed', 'followers_count', 'created_at',
   'updated_at', 'expert_badge_title', 'expert_circle_id', 'email_verified_at',
 ].join(', ');
@@ -40,6 +40,11 @@ export async function ensureProfilePhone(userId, phoneE164) {
   if (error && error.code !== '23505') throw error;
 }
 
+export function foundingMemberNumberFromRow(row) {
+  const n = Number(row?.founding_member_number);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 export function profileRowToUser(row) {
   if (!row) return null;
   return {
@@ -55,6 +60,7 @@ export function profileRowToUser(row) {
     expertCircleId: row.expert_circle_id || null,
     contact: row.contact || null,
     isFoundingMember: !!row.is_founding_member,
+    foundingMemberNumber: foundingMemberNumberFromRow(row),
     followers: row.followers_count ?? 0,
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   };
@@ -138,7 +144,15 @@ export async function completeOnboarding({ name, suburb, photo, newcomer, phone 
   });
   row.phone = phone ? normalizePhoneE164(phone) : undefined;
 
-  const { error } = await supabase.from('profiles').update(row).eq('id', userId);
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(row)
+    .eq('id', userId)
+    .select(PROFILE_PUBLIC_COLUMNS)
+    .single();
   if (error) throw error;
-  return userId;
+  return {
+    userId,
+    foundingMemberNumber: foundingMemberNumberFromRow(data),
+  };
 }
