@@ -24,7 +24,7 @@ import {
   hasExpertProfessionalProfile,
 } from '../../utils/expertPost';
 
-const TITLE_MIN = 10, TITLE_MAX = 120, BODY_MIN = 30, BODY_MAX = 4000;
+const TITLE_MIN = 10, TITLE_MAX = 120, BODY_MIN = 10, BODY_MAX = 4000;
 
 export default function AskComposerScreen({ navigation, route }) {
   const { colors, spacing, font, radius, shadow } = useTheme();
@@ -284,6 +284,9 @@ export default function AskComposerScreen({ navigation, route }) {
         >
           <Input placeholder="e.g. Can I apply for a 485 visa before my results are out?" value={title} onChangeText={setTitle} maxLength={TITLE_MAX + 20} />
           <View style={styles.counterRow}><CharCount value={title} min={TITLE_MIN} max={TITLE_MAX} /></View>
+          {title.trim().length > 0 && title.trim().length < TITLE_MIN ? (
+            <Text style={styles.minHint}>{TITLE_MIN - title.trim().length} more character{TITLE_MIN - title.trim().length !== 1 ? 's' : ''} needed</Text>
+          ) : null}
         </Field>
 
         <Field
@@ -292,6 +295,9 @@ export default function AskComposerScreen({ navigation, route }) {
         >
           <Input placeholder="Share the context so people can give you a genuinely useful answer…" value={body} onChangeText={setBody} maxLength={BODY_MAX + 50} multiline />
           <View style={styles.counterRow}><CharCount value={body} min={BODY_MIN} max={BODY_MAX} /></View>
+          {body.trim().length > 0 && body.trim().length < BODY_MIN ? (
+            <Text style={styles.minHint}>{BODY_MIN - body.trim().length} more character{BODY_MIN - body.trim().length !== 1 ? 's' : ''} needed</Text>
+          ) : null}
         </Field>
 
         {user?.verified ? (
@@ -415,6 +421,7 @@ const createStyles = (colors, spacing, font, radius, shadow) => StyleSheet.creat
   wrap: { flex: 1, backgroundColor: colors.bg },
   body: { padding: spacing.lg, paddingBottom: spacing.xl },
   counterRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
+  minHint: { fontSize: font.tiny, color: colors.warning || '#F59E0B', marginTop: 4, textAlign: 'right', fontWeight: '600' },
   chips: { gap: spacing.xs },
   selectedMark: { fontSize: font.tiny, color: colors.primary, fontWeight: '800', marginTop: 4, marginLeft: 4 },
   joinHint: { fontSize: font.tiny, color: colors.textFaint, marginTop: 2, marginLeft: 4 },
