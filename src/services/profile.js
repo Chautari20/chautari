@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { ensureSupabaseUserForPhone } from './auth';
+import { normalizeAuPhone } from '../utils/phone';
 
 /** Public profile columns — never include email. Matches 012 GRANT SELECT. */
 export const PROFILE_PUBLIC_COLUMNS = [
@@ -9,17 +9,10 @@ export const PROFILE_PUBLIC_COLUMNS = [
   'updated_at', 'expert_badge_title', 'expert_circle_id', 'email_verified_at',
 ].join(', ');
 
-export function normalizePhoneE164(phone) {
-  if (!phone) return null;
-  const digits = String(phone).replace(/\D/g, '');
-  if (digits.startsWith('61') && digits.length === 11) return `+${digits}`;
-  if (digits.length === 9 && digits.startsWith('4')) return `+61${digits}`;
-  return phone.startsWith('+') ? phone : `+${digits}`;
-}
-
 export async function ensureProfilePhone(userId, phoneE164) {
   if (!isSupabaseConfigured() || !userId) return;
-  const phone = normalizePhoneE164(phoneE164);
+  const phone = normalizeAuPhone(phoneE164);
+  if (!phone) return; // never write an un-normalised phone
 
   const tryUpdate = async () => {
     const { data, error } = await supabase
@@ -120,13 +113,11 @@ export async function updateProfile(patch) {
 export async function completeOnboarding({ name, suburb, photo, newcomer, phone }) {
   if (!isSupabaseConfigured()) return null;
 
-  let userId = (await supabase.auth.getUser()).data.user?.id;
-  if (!userId && phone) {
-    const user = await ensureSupabaseUserForPhone(phone);
-    userId = user?.id ?? null;
-  }
+  // Onboarding always runs inside an existing session (OTP / dev login / email
+  // login). Never create an account here — a missing session is an error.
+  const userId = (await supabase.auth.getUser()).data.user?.id;
   if (!userId) {
-    throw new Error('Could not sign in — check your connection and Supabase configuration.');
+    throw new Error('Your session has expired. Please log in again.');
   }
 
   const row = patchToRow({
@@ -136,7 +127,8 @@ export async function completeOnboarding({ name, suburb, photo, newcomer, phone 
     newcomer: !!newcomer,
     isFoundingMember: true,
   });
-  row.phone = phone ? normalizePhoneE164(phone) : undefined;
+  const normalizedPhone = phone ? normalizeAuPhone(phone) : null;
+  if (normalizedPhone) row.phone = normalizedPhone;
 
   const { error } = await supabase.from('profiles').update(row).eq('id', userId);
   if (error) throw error;

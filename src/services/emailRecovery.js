@@ -25,13 +25,24 @@ function throwInvokeError(data, error) {
   throw err;
 }
 
-async function invoke(name, body) {
+/**
+ * Call an edge function. Throws Error(friendly server message) with `devDetail`
+ * (name · code · message · HTTP status) for __DEV__ display. Non-2xx responses
+ * from supabase-js arrive as `error` with the JSON body unparsed, so read it.
+ */
+export async function invokeFunction(name, body) {
   if (!isSupabaseConfigured()) throw new Error('Sign-in is not available right now.');
   const { data, error } = await supabase.functions.invoke(name, { body });
-  if (data?.ok === false) throwInvokeError(data, error);
-  if (error) throwInvokeError(data, error);
-  return data || {};
+  let payload = data;
+  if (error && !payload && error.context && typeof error.context.json === 'function') {
+    try { payload = await error.context.json(); } catch { payload = null; }
+  }
+  if (payload?.ok === false) throwInvokeError(payload, error);
+  if (error) throwInvokeError(payload, error);
+  return payload || {};
 }
+
+const invoke = invokeFunction;
 
 export function sendVerifyEmail(email) {
   return invoke('email-verification', { action: 'send', purpose: 'verify_email', email });

@@ -70,7 +70,7 @@ chautari-test/
 │   ├── migrations/             000..013 SQL (see §10). Never edit existing 000–012 files.
 │   ├── run-migrations.js       Applies migrations in order via `pg`
 │   ├── verify.js               Sanity-checks schema
-│   ├── functions/              email-verification (JWT); account-recovery, account-lookup, email-login (--no-verify-jwt)
+│   ├── functions/              email-verification (JWT); account-recovery, account-lookup, email-login, dev-login (--no-verify-jwt)
 │   ├── scripts/run-sql.js      Run arbitrary SQL file
 │   ├── scripts/grant_expert_ashish2.sql   One-off dev grant script
 │   └── README.md               How to run migrations
@@ -112,7 +112,8 @@ chautari-test/
     │   ├── useProfilePhotoFlow.js Avatar pick → crop → preview modal → confirm
     │   └── useGoBack.js        Safe goBack with tab fallback; Android back handler
     ├── services/
-    │   ├── auth.js             Phone OTP / mock password auth; email-login token verify
+    │   ├── auth.js             Phone OTP; dev login via `dev-login` function; email-login token verify
+    │   ├── ../utils/phone.js   normalizeAuPhone — the one client phone normaliser (+614XXXXXXXX)
     │   ├── authSession.js      After a session: home if complete, else first unfinished onboarding step
     │   ├── emailRecovery.js    Edge function wrappers (verify, recovery, lookup, email-login)
     │   ├── profile.js          profiles row ↔ app user mapping; completeOnboarding; updateProfile
@@ -249,7 +250,7 @@ Navigation helpers: `src/utils/navigation.js` (`useNavigationGuard` debounces do
 | `auth/SplashScreen` | Branded wait while `booted`/`authReady`/1.5 s elapse | – | – | – (RootNavigator swaps route) |
 | `auth/PhoneEntryScreen` | Log in: lookup phone, then OTP (`shouldCreateUser: false`). Pinned Register; email login + lost-number links | `lookupAccount`, `sendPhoneOtp` | – | `Otp`, `PhoneRegister`, `EmailLogin`, `RecoveryEmail` |
 | `auth/PhoneRegisterScreen` | Register: lookup phone, then OTP (`shouldCreateUser: true`) | `lookupAccount`, `sendPhoneOtp` | – | `Otp`, `PhoneEntry` |
-| `auth/OtpScreen` | 6-digit SMS. Mock login: `signInDevForPhone` (no sign-up). Mock register: `ensureSupabaseUserForPhone` | `verifyPhoneOtp`, `finishAuthNavigation` | via `authSession` | home / first incomplete onboarding step |
+| `auth/OtpScreen` | 6-digit SMS. Mock login: `signInDevForPhone` → `dev-login` function (works for any existing account, never signs up). Mock register: `ensureSupabaseUserForPhone`. After the code only "no account" / "wrong code" / "too many" show verbatim; other failures → `AUTH_COPY.loginFailed` + raw detail in `__DEV__` (`toLoginError`) | `verifyPhoneOtp`, `finishAuthNavigation` | via `authSession` | home / first incomplete onboarding step |
 | `auth/EmailLoginScreen` / `EmailLoginCodeScreen` | Email login for a **verified** recovery email | `lookupAccount`, `sendEmailLogin`, `verifyEmailLoginCode`, `verifyEmailLoginToken` | via `authSession` | home / onboarding |
 | `auth/EmailScreen` / `EmailCodeScreen` | Recovery email + 6-digit code via `email-verification` | `sendVerifyEmail`, `verifyEmailCode`, `lookupAccount` (mock taken-check) | `SET_AUTH_PROFILE` / `LOGOUT` | `ProfileSuburb` or sign-out to Log in |
 | `auth/Recovery*` | Lost-phone flow via `account-recovery` (no JWT) | `startAccountRecovery` … `completeAccountRecovery` | – | back to `PhoneEntry` with new number |
@@ -498,10 +499,11 @@ Following tab: `followingFeed()` = posts authored or answered by followed users,
 
 | File | Exports | Notes |
 |---|---|---|
-| `services/auth.js` | `toE164Au`, `usesMockOtp`, `ensureSupabaseUserForPhone`, `signInDevForPhone`, `sendPhoneOtp`, `verifyPhoneOtp`, `verifyEmailLoginToken`, `getSession`, `signOut`, `onAuthStateChange` | Mock register may create `user+<digits>@chautari.app`. Mock login never creates. Real login: `signInWithOtp` `shouldCreateUser: false`. |
+| `services/auth.js` | `toE164Au`, `usesMockOtp`, `ensureSupabaseUserForPhone`, `signInDevForPhone`, `sendPhoneOtp`, `verifyPhoneOtp`, `verifyEmailLoginToken`, `getSession`, `signOut`, `onAuthStateChange` | Mock register may create `user+<digits>@chautari.app`. Mock login (`__DEV__` only) calls the `dev-login` function → `token_hash` → `verifyOtp`; works for real-SMS, dev and recovered accounts and never creates one. Real login: `signInWithOtp` `shouldCreateUser: false`. `mapAuthError` keeps the raw provider error in `devDetail`. |
+| `utils/phone.js` | `normalizeAuPhone`, `isAuMobile`, `auNationalDigits` | The only client phone normaliser. `04…`, `+61 4…`, `61 4…`, `4…` → `+614XXXXXXXX`; anything else → `null`. Mirrors `_shared/phone.ts` and SQL `normalize_au_phone()` (015). |
 | `services/authSession.js` | `finishAuthNavigation` | `SET_AUTH_PROFILE` then home (`RESTORE_SESSION`) or first incomplete onboarding route. |
 | `services/emailRecovery.js` | verify / recovery / `lookupAccount` / `sendEmailLogin` / `verifyEmailLoginCode` | Invokes edge functions; friendly `error` plus `__DEV__` `devDetail`. |
-| `services/profile.js` | `normalizePhoneE164`, `ensureProfilePhone`, `profileRowToUser`, `profileMetaFromRow`, `fetchProfile`, `updateProfile`, `completeOnboarding` | `completeOnboarding` ensures the auth user exists then updates `profiles` (name, suburb, photo_url, newcomer, is_founding_member = true, phone). |
+| `services/profile.js` | `ensureProfilePhone`, `profileRowToUser`, `profileMetaFromRow`, `fetchProfile`, `updateProfile`, `completeOnboarding` | `completeOnboarding` requires an existing session (never creates an auth user) then updates `profiles` (name, suburb, photo_url, newcomer, is_founding_member = true, phone normalised). |
 | `services/mediaStorage.js` | `stagePickerAssetToFile`, `getMediaPublicUrl`, `prepareImageForUpload`, `uploadMediaFile`, `uploadImageAsset`, `uploadPreparedImage`, `uploadAvatar`, `uploadQuestionPhotos`, `uploadCircleImage`, `uploadAnswerPhoto`, `uploadReplyPhoto`, `uploadExpertCredential` | Pipeline: stage → resize ≤ 1920 px, JPEG q0.82 → base64 → ArrayBuffer → `storage.from('media').upload(<prefix>/<uid>/<file>)`. Prefixes in `constants/media.js:MEDIA_PATH_PREFIX`. Requires signed-in user (RLS). |
 | `services/digest.js` | `ensureNotificationPermissions`, `composeDigestSummary`, `cancelDigestSchedule`, `scheduleDigest`, `addDigestInAppNotification`, `runDigestPreview` | Local `expo-notifications` only. Daily 18:00 or weekly Monday 18:00 (`weekday: 2`), identifier `chautari-daily-digest`. Tapping routes to Circles tab (`components/common/DigestManager.js`). |
 | `services/liveData/fetch.js` | `fetchLiveBundle` | 7 parallel queries: `posts(*, answers(*, replies(*)))`, non-official `circles`, my `upvotes`, `saved_posts`, `follows`, `circle_members`, `checklist_progress`; then `profiles in (…uuids)`. Non-UUID ids filtered. |
@@ -563,8 +565,9 @@ Following tab: `followingFeed()` = posts authored or answered by followed users,
 | `012_verified_recovery_email.sql` | `profiles.email` + `email_verified_at` (service_role write only); unique verified email; `email_codes`; `recovery_sessions`; `profile_is_complete()` |
 | `013_auth_lookup_and_email_login.sql` | `auth_checks` (service_role only, IP rate limit); `email_codes.purpose` adds `login`; `profiles_phone_idx` |
 | `014_rename_questions_to_posts.sql` | **Terminology rename, no data change.** `questions` → `posts`; `saved_questions` → `saved_posts`; `answers.question_id`, `saved_posts.question_id`, `notifications.question_id`, `checklist_items.question_id` → `post_id`; `circles.pinned_question_id` → `pinned_post_id`; constraints/indexes/policies/trigger renamed `questions_*` → `posts_*`; enum `upvote_target` value `question` → `post`; storage insert policy allows prefix `posts` (replaces `questions`; existing `questions/…` objects stay readable) |
+| `015_normalize_profile_phones.sql` | **One phone format.** `normalize_au_phone(text)` (AU mobile → `+614XXXXXXXX`, else unchanged); `BEFORE INSERT OR UPDATE OF phone` trigger on `profiles`; `handle_new_user()` normalises `auth.users.phone` / metadata phone (real-SMS sign-ups previously landed as `614…` without `+` and were invisible to lookup); rewrites existing rows. `auth.users.phone` is left as Supabase stores it (digits only) |
 
-`010`, `013` and `014` are applied on the hosted project. Whether `012` is applied is implied by `013` succeeding (`email_codes` must exist).
+`010`, `013` and `014` are applied on the hosted project; `015` is pending (`node supabase/run-migrations.js 015`). Whether `012` is applied is implied by `013` succeeding (`email_codes` must exist).
 
 ### Tables (after 014)
 
@@ -572,7 +575,7 @@ Following tab: `followingFeed()` = posts authored or answered by followed users,
 |---|---|---|
 | `profiles` | `id UUID PK → auth.users`, `phone`, `email`, `email_verified_at`, `name`, `suburb`, `photo_url`, `bio`, `verified`, `verified_category`, `profession`, `contact`, `is_founding_member`, `newcomer`, `newcomer_since`, `digest_mode` (enum daily/weekly/off), `checklist_card_dismissed`, `followers_count`, `expert_badge_title`, `expert_circle_id`, timestamps | Auto-created by trigger. Clients cannot write `email` / `email_verified_at`. Raw `email` is not selectable by anon/authenticated. |
 | `email_codes` | `id`, `user_id`, `email`, `purpose` (verify_email/recovery/change_phone/login), `code_hash`, `expires_at`, `attempts`, `consumed_at` | RLS on, no policies — service_role only |
-| `auth_checks` | `id`, `ip`, `created_at` | RLS on, no policies — service_role only. 10 / IP / minute for `account-lookup` |
+| `auth_checks` | `id`, `ip`, `created_at` | RLS on, no policies — service_role only. 10 / IP / minute for `account-lookup` and `dev-login` |
 | `recovery_sessions` | `id`, `user_id`, `token_hash`, `expires_at`, `consumed_at`, `new_phone` | RLS on, no policies — service_role only |
 | `circles` | `id TEXT PK`, `name`, `handle UNIQUE`, `description`, `icon`, `accent_id`, `creator_id UUID`, `is_official`, `pinned_post_id → posts`, `member_count`, `image_url`, timestamps | |
 | `circle_members` | `(circle_id, user_id) PK` | |
@@ -629,7 +632,9 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 | OTP: 6 digits, 3 attempts, 60 s resend cooldown; mock mode accepts any 6 digits | `screens/auth/OtpScreen.js` (`LENGTH`, `attempts`, `setSeconds(60)`) |
 | Sign-in is phone OTP (login vs register) or a code to a **verified** recovery email. Email is not a password | `PhoneEntryScreen`, `EmailLoginScreen`, `012`/`013` |
 | Login must not create an account (`shouldCreateUser: false`); register may | `services/auth.js` `sendPhoneOtp` |
-| Mock OTP only if `EXPO_PUBLIC_AUTH_DEV_MODE === 'true'` and `__DEV__`; mock login never sign-ups | `lib/supabase.js` `isAuthDevMode`, `signInDevForPhone` |
+| Mock OTP only in `__DEV__` builds; mock login never signs up and works for every existing account (server `dev-login`, gated by `AUTH_DEV_BYPASS` + project allow-list, 404 elsewhere) | `lib/supabase.js` `isAuthDevMode`, `services/auth.js` `signInDevForPhone`, `supabase/functions/dev-login` |
+| Phone numbers are stored and compared as `+614XXXXXXXX` everywhere (`profiles.phone`, lookup, dev login, client) | `utils/phone.js`, `_shared/phone.ts`, SQL `normalize_au_phone()` + trigger (015) |
+| After the code step, "No account is registered…" is shown only when lookup / server says so; other failures show "We couldn't log you in" (+ raw error in `__DEV__`) | `utils/authCopy.js` `toLoginError`, `OtpScreen.js` |
 | Dev register may create `user+<digits>@chautari.app` with a fixed password | `services/auth.js` `ensureSupabaseUserForPhone` |
 | Digest: daily 18:00 or weekly Monday 18:00 local notification; off disables | `services/digest.js:67-69` |
 | Splash shows at least 1.5 s | `navigation/RootNavigator.js:66` |
@@ -682,7 +687,7 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 Header block (`HomeScreen.js:~140-180`): segment control, Hot/New toggle (`FeedSortToggle`), live pill, `ChecklistFeedCard`. List: `QuestionFeedList` → `QuestionCard`; `CirclesRecommendRow` injected via `insertAfterIndex`. Top bar: Search and Notifications buttons (`187-190`).
 
 **"How does a new user get into the app?"**
-`RootNavigator` auth group starts at `PhoneEntry` (Log in). Register → `PhoneRegister` → `Otp` (`createUser: true`) → name → recovery email → suburb → `completeOnboarding`. Returning user: Log in looks up `profiles.phone` then OTP (`shouldCreateUser: false`); complete profile → `RESTORE_SESSION`, else first incomplete onboarding step. Email login: verified email → `email-login` → `verifyOtp`.
+`RootNavigator` auth group starts at `PhoneEntry` (Log in). Register → `PhoneRegister` → `Otp` (`createUser: true`) → name → recovery email → suburb → `completeOnboarding`. Returning user: Log in looks up `profiles.phone` then OTP (`shouldCreateUser: false`; in `__DEV__` mock mode the code step calls `dev-login` instead, which issues a magic-link token for the existing account); complete profile → `RESTORE_SESSION`, else first incomplete onboarding step. Email login: verified email → `email-login` → `verifyOtp`.
 
 **"How do I add a Supabase column?"**
 Add a new `supabase/migrations/014_*.sql` (never edit older files), run `node supabase/run-migrations.js 014`, map the column in `services/liveData/mappers.js` and/or `services/profile.js`, write it in `persist.js` for the relevant action.

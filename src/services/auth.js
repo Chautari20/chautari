@@ -1,45 +1,51 @@
 import { supabase, isSupabaseConfigured, isAuthDevMode } from '../lib/supabase';
 import { AUTH_COPY } from '../utils/authCopy';
+import { normalizeAuPhone } from '../utils/phone';
+import { invokeFunction } from './emailRecovery';
 
 const DEV_AUTH_PASSWORD = 'chautari-prototype';
 
-function normalizePhoneE164(phone) {
-  if (!phone) return null;
-  const digits = String(phone).replace(/\D/g, '');
-  if (digits.startsWith('61') && digits.length === 11) return `+${digits}`;
-  if (digits.length === 9 && digits.startsWith('4')) return `+61${digits}`;
-  return phone.startsWith('+') ? phone : `+${digits}`;
-}
-
+/** 9 national digits (or any AU form) → +614XXXXXXXX. Returns '' if not an AU mobile. */
 export function toE164Au(digits) {
-  const cleaned = String(digits).replace(/\D/g, '');
-  return `+61${cleaned}`;
+  return normalizeAuPhone(digits) || '';
 }
 
 export function usesMockOtp() {
   return isAuthDevMode();
 }
 
+/** Synthetic identity used ONLY by dev Register (ensureSupabaseUserForPhone). */
 function emailForPhone(phoneE164) {
-  const digits = normalizePhoneE164(phoneE164).replace(/\D/g, '');
+  const digits = (normalizeAuPhone(phoneE164) || String(phoneE164)).replace(/\D/g, '');
   return `user+${digits}@chautari.app`;
 }
 
+/**
+ * Friendly copy only; the raw provider error rides along in `devDetail`.
+ * `kind`:
+ *  - 'send-login'    sending an OTP to a number that should already exist
+ *  - 'register'      sign-up / send for a new number
+ *  - 'verify'        after the code — never maps to "no account"
+ */
 function mapAuthError(error, kind) {
   const raw = `${error?.message || ''} ${error?.code || ''}`;
-  if (/rate|too many/i.test(raw)) return new Error(AUTH_COPY.tooMany);
-  if (kind === 'login' && /not found|signups not allowed|unable to find|user not found/i.test(raw)) {
-    return new Error(AUTH_COPY.noAccountPhone);
-  }
-  if (/invalid|otp|token|code/i.test(raw)) return new Error(AUTH_COPY.codeWrong);
-  return new Error(AUTH_COPY.unavailable);
+  let friendly;
+  if (/rate|too many/i.test(raw)) friendly = AUTH_COPY.tooMany;
+  else if (kind === 'send-login' && /not found|signups not allowed|unable to find|user not found/i.test(raw)) {
+    friendly = AUTH_COPY.noAccountPhone;
+  } else if (kind === 'verify' && /invalid|otp|token|code|expired/i.test(raw)) friendly = AUTH_COPY.codeWrong;
+  else friendly = kind === 'verify' ? AUTH_COPY.loginFailed : AUTH_COPY.unavailable;
+  const err = new Error(friendly);
+  const detail = [error?.code, error?.message, error?.status && `HTTP ${error.status}`].filter(Boolean).join(' · ');
+  if (detail) err.devDetail = detail;
+  return err;
 }
 
-/** Dev/register only: create or sign in the synthetic email/password user. Never used for login. */
+/** Dev Register only: create (or re-enter) the synthetic email/password user. Never used for login. */
 export async function ensureSupabaseUserForPhone(phoneE164) {
   if (!isSupabaseConfigured()) return null;
   const email = emailForPhone(phoneE164);
-  const phone = normalizePhoneE164(phoneE164);
+  const phone = normalizeAuPhone(phoneE164);
 
   let { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -57,16 +63,27 @@ export async function ensureSupabaseUserForPhone(phoneE164) {
   return data.user;
 }
 
-/** Dev login only — never creates an account. */
+/**
+ * Dev Login only (__DEV__ + mock OTP). Works for EVERY existing account however
+ * it was created (real SMS, dev register, recovery) and never creates one.
+ * Server side: `dev-login` edge function, which 404s unless AUTH_DEV_BYPASS is
+ * set on the allow-listed project. Throws AUTH_COPY.noAccountPhone only when the
+ * server says there is no account; any other failure keeps the raw error in devDetail.
+ */
 export async function signInDevForPhone(phoneE164) {
   if (!isSupabaseConfigured()) throw new Error(AUTH_COPY.unavailable);
-  const email = emailForPhone(phoneE164);
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password: DEV_AUTH_PASSWORD,
-  });
-  if (error || !data.user) throw new Error(AUTH_COPY.noAccountPhone);
-  return data.user;
+  if (!(typeof __DEV__ !== 'undefined' && __DEV__)) throw new Error(AUTH_COPY.unavailable);
+  const phone = normalizeAuPhone(phoneE164);
+  if (!phone) throw new Error(AUTH_COPY.noAccountPhone);
+
+  const data = await invokeFunction('dev-login', { phone });
+  if (!data?.token_hash) {
+    const err = new Error(AUTH_COPY.loginFailed);
+    err.devDetail = 'dev-login returned no token_hash';
+    throw err;
+  }
+  const { user } = await verifyEmailLoginToken(data.token_hash, data.type);
+  return user;
 }
 
 export async function sendPhoneOtp(phoneE164, { createUser = false } = {}) {
@@ -76,7 +93,7 @@ export async function sendPhoneOtp(phoneE164, { createUser = false } = {}) {
     phone: phoneE164,
     options: { shouldCreateUser: !!createUser },
   });
-  if (error) throw mapAuthError(error, createUser ? 'register' : 'login');
+  if (error) throw mapAuthError(error, createUser ? 'register' : 'send-login');
 }
 
 export async function verifyPhoneOtp(phoneE164, token) {
@@ -86,8 +103,8 @@ export async function verifyPhoneOtp(phoneE164, token) {
     token,
     type: 'sms',
   });
-  if (error) throw mapAuthError(error, 'login');
-  if (!data.user) throw new Error(AUTH_COPY.unavailable);
+  if (error) throw mapAuthError(error, 'verify');
+  if (!data.user) throw new Error(AUTH_COPY.loginFailed);
   return { user: data.user, session: data.session };
 }
 
@@ -103,8 +120,8 @@ export async function verifyEmailLoginToken(tokenHash, type = 'magiclink') {
     data = retry.data;
     error = retry.error;
   }
-  if (error) throw mapAuthError(error, 'login');
-  if (!data.user) throw new Error(AUTH_COPY.unavailable);
+  if (error) throw mapAuthError(error, 'verify');
+  if (!data.user) throw new Error(AUTH_COPY.loginFailed);
   return { user: data.user, session: data.session };
 }
 

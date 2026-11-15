@@ -12,3 +12,7 @@ verify_jwt = false
 
 [functions.email-login]
 verify_jwt = false
+
+# Dev-only; returns 404 unless AUTH_DEV_BYPASS is set on the allow-listed project.
+[functions.dev-login]
+verify_jwt = false

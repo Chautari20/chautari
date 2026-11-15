@@ -12,7 +12,7 @@ import {
   verifyPhoneOtp,
 } from '../../services/auth';
 import { finishAuthNavigation } from '../../services/authSession';
-import { AUTH_COPY } from '../../utils/authCopy';
+import { AUTH_COPY, toLoginError } from '../../utils/authCopy';
 import { emptyScreenError, screenError } from '../../utils/formError';
 
 const LENGTH = 6;
@@ -65,22 +65,30 @@ export default function OtpScreen({ navigation, route }) {
     setError(emptyScreenError());
     setVerifying(true);
     try {
+      // Dev builds with mock OTP: any 6 digits. Register creates the synthetic
+      // dev user; Login asks the dev-login function for a token for the EXISTING
+      // account (any origin) and never creates one.
       if (mockOtp) {
         const user = createUser
           ? await ensureSupabaseUserForPhone(phoneE164)
           : await signInDevForPhone(phoneE164);
-        if (!user?.id) throw new Error(AUTH_COPY.unavailable);
+        if (!user?.id) throw new Error(AUTH_COPY.loginFailed);
         await afterOtp(user.id);
         return;
       }
       const { user } = await verifyPhoneOtp(phoneE164, code);
-      if (!user?.id) throw new Error(AUTH_COPY.unavailable);
+      if (!user?.id) throw new Error(AUTH_COPY.loginFailed);
       await afterOtp(user.id);
     } catch (e) {
-      const left = attempts - 1;
+      // After the code step only "no account" (server-confirmed), "wrong code"
+      // and "too many" are shown as-is; anything else is loginFailed (+ raw
+      // detail in __DEV__). A failed sign-in is not a wrong code, so it does
+      // not burn an attempt.
+      const friendly = toLoginError(e);
+      const wrongCode = friendly.message === AUTH_COPY.codeWrong;
+      const left = wrongCode ? attempts - 1 : attempts;
       setAttempts(left);
-      const fallback = left > 0 ? AUTH_COPY.codeWrong : AUTH_COPY.tooMany;
-      setError(screenError(left > 0 ? e : new Error(AUTH_COPY.tooMany), fallback));
+      setError(screenError(left > 0 ? friendly : new Error(AUTH_COPY.tooMany), AUTH_COPY.loginFailed));
       if (left <= 0) setCode('');
     } finally {
       setVerifying(false);
