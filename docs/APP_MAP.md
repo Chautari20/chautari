@@ -97,7 +97,6 @@ chautari-test/
     │   ├── store.js            DataProvider: reducer, persistence, Supabase bootstrap, syncDispatch, useSelectors
     │   ├── circles.js          8 official circles, accent palette + presentation helpers, slugify, name checks
     │   ├── categories.js       CATEGORIES (8 official circle ids), SUBURBS, professionLabel()
-    │   ├── checklist.js        10 "First 30 Days" items (`questionId` is null until a live thread exists)
     │   └── network.js          Mock online/offline context (toggle in Settings)
     ├── feed/
     │   ├── rankingConfig.js    Tunables: GRAVITY, WEIGHTS, PAGE_SIZE, DISCOVERY_RATIO, DISCOVERY_MIN_SCORE; score()
@@ -227,7 +226,6 @@ All routes use `headerBackVisible: false` and a shared `BackButton` as `headerLe
 | `EditProfile` | Root | `screens/profile/EditProfileScreen` | "Edit profile" | – |
 | `MyPosts` | Root | `screens/profile/MyPostsScreen` | "My Posts" | – |
 | `SavedPosts` | Root | `screens/profile/SavedPostsScreen` | "Saved Posts" | – |
-| `ArrivalChecklist` | Root | `screens/checklist/ArrivalChecklistScreen` | "First 30 Days" | – |
 | `Settings` | Root | `screens/settings/SettingsScreen` | "Settings" | – |
 | `ChangePhoneEmailCode` / `ChangePhoneNew` / `ChangePhoneSmsCode` | Root | `screens/settings/ChangePhone*` | "Change phone number" / "New number" / `''` | `token`, `phoneE164` |
 | `Help` / `Terms` / `Privacy` / `About` | Root | `screens/settings/*` | "Help & FAQ" / "Terms & Conditions" / "Privacy Policy" / "About Chautari" | – |

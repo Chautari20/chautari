@@ -28,7 +28,7 @@ const OFFICIAL_META = {
   health: { name: 'Health & Medical', handle: 'health-medical', description: 'GPs, Medicare, mental health and navigating care in Australia.' },
   real_estate: { name: 'Real Estate', handle: 'real-estate', description: 'Renting, buying, auctions and tenant rights in Victoria.' },
   loans: { name: 'Loans & Mortgages', handle: 'loans-mortgages', description: 'Home loans, refinancing and first-home buyer schemes.' },
-  it_careers: { name: 'IT & Careers', handle: 'it-careers', description: 'Jobs, resumes, interviews and breaking into the local market.' },
+  
   general: { name: 'Life in Australia', handle: 'life-australia', description: 'Settling in, culture, community and everyday life.' },
   others: { name: 'Others', handle: 'others', description: 'Everything else — post away.' },
 };

@@ -186,6 +186,12 @@ export default function QuestionDetailScreen({ navigation, route }) {
     }
     if (isMine) {
       options.push({
+        text: 'Edit question',
+        onPress: () => {
+          navigation.navigate('AskComposer', { editQuestionId: questionId });
+        },
+      });
+      options.push({
         text: 'Delete question',
         style: 'destructive',
         onPress: () => {
@@ -205,8 +211,13 @@ export default function QuestionDetailScreen({ navigation, route }) {
       options.push({ text: 'Report question', style: 'destructive', onPress: () => navigate('Report', { kind: 'content', targetTitle: question.title }) });
     }
     options.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert(isMine ? 'Your question' : 'Question options', null, options);
-  }, [question, isMine, dispatch, questionId, showToast, navigate, goBack, circleById, isCircleCreator]);
+    Alert.alert(isMine ? 'Your question' : 'Question options', '', options);
+  }, [question, isMine, dispatch, questionId, showToast, navigate, goBack, circleById, isCircleCreator, navigation]);
+
+  // Keep a stable ref so the header button always calls the latest openMenu
+  // without needing to re-register header options on every render.
+  const openMenuRef = useRef(openMenu);
+  useEffect(() => { openMenuRef.current = openMenu; }, [openMenu]);
 
   const toggleSave = useCallback(async () => {
     const wasSaved = isSaved(questionId);
@@ -222,13 +233,13 @@ export default function QuestionDetailScreen({ navigation, route }) {
           <Pressable onPress={toggleSave} hitSlop={10}>
             <Text style={{ fontSize: 20, color: saved ? colors.primary : colors.textMuted }}>{saved ? '🔖' : '🔖'}</Text>
           </Pressable>
-          <Pressable onPress={openMenu} hitSlop={10}>
+          <Pressable onPress={() => openMenuRef.current()} hitSlop={10}>
             <Text style={{ fontSize: 20, color: colors.textMuted }}>⋯</Text>
           </Pressable>
         </View>
       ),
     });
-  }, [navigation, question, isMine, saved, colors, toggleSave, openMenu]);
+  }, [navigation, question, isMine, saved, colors, toggleSave]);
 
   // Split: verified-expert answers pinned to the top, community answers below.
   const { pinned, community } = useMemo(() => {
@@ -638,7 +649,10 @@ export default function QuestionDetailScreen({ navigation, route }) {
                 <Text style={styles.authorName}>{qAuthor.name}</Text>
                 {isExpertPost ? <VerifiedBadge compact /> : null}
               </View>
-              <Text style={styles.metaText}>{qAuthor.suburb ? `${qAuthor.suburb} · ` : ''}{timeAgo(question.createdAt)}</Text>
+              <Text style={styles.metaText}>
+                {qAuthor.suburb ? `${qAuthor.suburb} · ` : ''}{timeAgo(question.createdAt)}
+                {question.editedAt ? <Text style={styles.editedLabel}> · Edited</Text> : null}
+              </Text>
             </View>
           </Pressable>
 
@@ -745,6 +759,7 @@ const createStyles = (colors, spacing, font, radius, line, shadow) => StyleSheet
   authorName: { fontWeight: '800', color: colors.text, fontSize: font.caption },
   metaText: { color: colors.textMuted, fontSize: font.tiny, marginTop: 1, fontWeight: '600' },
   metaTiny: { color: colors.textFaint, fontSize: font.tiny, fontWeight: '600' },
+  editedLabel: { color: colors.textFaint, fontWeight: '600', fontSize: font.tiny },
   qBody: { fontSize: font.bodyLg, color: colors.text, lineHeight: 25, marginTop: spacing.sm },
   link: { color: colors.primary, fontWeight: '700' },
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },

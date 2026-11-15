@@ -185,7 +185,6 @@ function AppNavigator() {
             <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit profile' }} />
             <Stack.Screen name="MyPosts" component={MyPostsScreen} options={{ title: 'My Posts' }} />
             <Stack.Screen name="SavedPosts" component={SavedPostsScreen} options={{ title: 'Saved Posts' }} />
-            <Stack.Screen name="ArrivalChecklist" component={ArrivalChecklistScreen} options={{ title: 'First 30 Days' }} />
             <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
             <Stack.Screen name="ChangePhoneEmailCode" component={ChangePhoneEmailCodeScreen} options={{ title: 'Change phone number' }} />
             <Stack.Screen name="ChangePhoneNew" component={ChangePhoneNewScreen} options={{ title: 'New number' }} />

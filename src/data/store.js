@@ -510,8 +510,24 @@ function reducer(state, action) {
       };
     }
 
+    case 'EDIT_QUESTION': {
+      return {
+        ...state,
+        questions: state.questions.map((q) => {
+          if (q.id !== action.questionId || q.authorId !== 'me') return q;
+          return {
+            ...q,
+            title: action.title.trim(),
+            body: action.body.trim(),
+            editedAt: Date.now(),
+          };
+        }),
+      };
+    }
+
     case 'DELETE_QUESTION':
       return { ...state, questions: state.questions.filter((q) => q.id !== action.questionId) };
+
 
     case 'MARK_NOTIFS_READ':
       return { ...state, notifications: state.notifications.map((n) => ({ ...n, read: true })) };

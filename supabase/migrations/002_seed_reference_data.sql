@@ -10,7 +10,7 @@ INSERT INTO public.circles (id, name, handle, description, icon, accent_id, is_o
   ('health',      'Health & Medical',      'health-medical',      'GPs, Medicare, mental health and navigating care in Australia.',        '🩺', 'teal',    TRUE, 1240, now() - interval '400 days'),
   ('real_estate', 'Real Estate',           'real-estate',         'Renting, buying, auctions and tenant rights in Victoria.',              '🏠', 'ocean',   TRUE, 1460, now() - interval '400 days'),
   ('loans',       'Loans & Mortgages',     'loans-mortgages',     'Home loans, refinancing and first-home buyer schemes.',                 '🏦', 'forest',  TRUE, 1680, now() - interval '400 days'),
-  ('it_careers',  'IT & Careers',          'it-careers',          'Jobs, resumes, interviews and breaking into the local market.',       '💻', 'plum',    TRUE, 1900, now() - interval '400 days'),
+  
   ('general',     'Life in Australia',     'life-australia',      'Settling in, culture, community and everyday life.',                    '🌏', 'clay',    TRUE, 2120, now() - interval '400 days'),
   ('others',      'Others',                'others',              'Everything else — ask away.',                                           '📌', 'slate',   TRUE, 2340, now() - interval '400 days')
 ON CONFLICT (id) DO UPDATE SET

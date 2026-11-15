@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Switch, Animated, Easing, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/common/Avatar';
@@ -47,8 +47,11 @@ export default function AskComposerScreen({ navigation, route }) {
   const { navigate } = useNavigationGuard(navigation);
   const { pickFromLibrary } = useImagePicker();
   const user = me();
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
+  const editQuestionId = route.params?.editQuestionId || null;
+  const isEditMode = !!editQuestionId;
+  const existingQuestion = isEditMode ? state.questions.find((q) => q.id === editQuestionId) : null;
+  const [title, setTitle] = useState(existingQuestion?.title || '');
+  const [body, setBody] = useState(existingQuestion?.body || '');
   const [circleId, setCircleId] = useState(route.params?.circleId || null);
   const [circleQuery, setCircleQuery] = useState('');
   const [photos, setPhotos] = useState([]);
@@ -57,6 +60,10 @@ export default function AskComposerScreen({ navigation, route }) {
   const [postMode, setPostMode] = useState('member');
   const [touched, setTouched] = useState(false);
   const [posting, setPosting] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: isEditMode ? 'Edit question' : 'Post a question' });
+  }, [navigation, isEditMode]);
   const success = useRef(new Animated.Value(0)).current;
   const pendingProfessional = useRef(false);
 
@@ -72,8 +79,8 @@ export default function AskComposerScreen({ navigation, route }) {
   const atProfessionalLimit = user?.verified && !canExpertPostProfessionalToday();
   const atMemberLimit = !canPostMemberToday();
   const atCurrentModeLimit = postedAsExpert ? atProfessionalLimit : atMemberLimit;
-  const circleOk = postedAsExpert ? hasExpertProfessionalProfile(user) : !!circleId;
-  const valid = titleOk && bodyOk && circleOk && !atCurrentModeLimit;
+  const circleOk = isEditMode || (postedAsExpert ? hasExpertProfessionalProfile(user) : !!circleId);
+  const valid = titleOk && bodyOk && circleOk && (isEditMode || !atCurrentModeLimit);
 
   useEffect(() => {
     if (atProfessionalLimit && postMode === 'professional') {
@@ -217,7 +224,23 @@ export default function AskComposerScreen({ navigation, route }) {
     }
     if (!valid || posting) return;
     if (!online) {
-      Alert.alert('No connection', 'You’re offline. Reconnect to post your question — your draft stays here.');
+      Alert.alert('No connection', isEditMode
+        ? 'You’re offline. Reconnect to save your edits.'
+        : 'You’re offline. Reconnect to post your question — your draft stays here.');
+      return;
+    }
+
+    // ── Edit mode ─────────────────────────────────────────────────────────────
+    if (isEditMode) {
+      setPosting(true);
+      try {
+        const res = await dispatch({ type: 'EDIT_QUESTION', questionId: editQuestionId, title, body });
+        if (res?.ok === false) throw res.error || new Error('Could not save edits');
+        if (navigation.canGoBack()) navigation.goBack();
+      } catch (e) {
+        setPosting(false);
+        Alert.alert('Could not save', e?.message || 'Check your connection and try again.');
+      }
       return;
     }
     if (photos.some((p) => p.uploading)) return;
@@ -268,10 +291,10 @@ export default function AskComposerScreen({ navigation, route }) {
         footer={(
           <View style={styles.footer}>
             <Button
-              title={atCurrentModeLimit ? 'Daily limit reached' : posting ? 'Posting…' : 'Post question'}
-              icon="✍️"
+              title={atCurrentModeLimit && !isEditMode ? 'Daily limit reached' : posting ? (isEditMode ? 'Saving…' : 'Posting…') : (isEditMode ? 'Save changes' : 'Post question')}
+              icon={isEditMode ? '✏️' : '✍️'}
               onPress={submit}
-              disabled={atCurrentModeLimit || posting || (touched && !valid)}
+              disabled={(atCurrentModeLimit && !isEditMode) || posting || (touched && !valid)}
             />
           </View>
         )}
@@ -279,7 +302,7 @@ export default function AskComposerScreen({ navigation, route }) {
         <ExpertPostQuota variant="banner" />
 
         <Field
-          label="Your question"
+          label={isEditMode ? 'Question title' : 'Your question'}
           error={touched && !titleOk ? `Keep the title between ${TITLE_MIN} and ${TITLE_MAX} characters.` : null}
         >
           <Input placeholder="e.g. Can I apply for a 485 visa before my results are out?" value={title} onChangeText={setTitle} maxLength={TITLE_MAX + 20} />
@@ -300,7 +323,8 @@ export default function AskComposerScreen({ navigation, route }) {
           ) : null}
         </Field>
 
-        {user?.verified ? (
+        {/* Expert mode toggle — hidden in edit mode */}
+        {!isEditMode && user?.verified ? (
           <ExpertPostModeToggle
             mode={postMode}
             onChange={handlePostModeChange}
@@ -319,11 +343,13 @@ export default function AskComposerScreen({ navigation, route }) {
           />
         ) : null}
 
-        {showProConfirm ? (
+        {/* Pro confirm — hidden in edit mode */}
+        {!isEditMode && showProConfirm ? (
           <ExpertProfessionalConfirm circleName={expertCircle?.name} badgeTitle={badgeTitle} />
         ) : null}
 
-        {!postedAsExpert ? (
+        {/* Circle selector — hidden in edit mode */}
+        {!isEditMode && !postedAsExpert ? (
           <Field label="Circle" error={touched && !circleId ? 'Pick a circle for your question.' : null}>
             <Input
               placeholder="Search circles…"
@@ -350,53 +376,60 @@ export default function AskComposerScreen({ navigation, route }) {
           </Field>
         ) : null}
 
-        <Field label={`Photos · optional · up to ${MAX_QUESTION_PHOTOS}`}>
-          <PhotoStrip
-            photos={photos}
-            maxCount={MAX_QUESTION_PHOTOS}
-            onAdd={() => setPickerOpen(true)}
-            onRemove={removePhoto}
-            onRetry={() => submit()}
-          />
-        </Field>
-
-        <View style={[styles.anonCard, postedAsExpert && styles.anonCardDisabled]}>
-          <View style={styles.anonHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.anonTitle}>Post anonymously</Text>
-              <Text style={styles.anonSub}>
-                {postedAsExpert
-                  ? 'Not available when posting as a professional — your verified identity is shown.'
-                  : 'Your name, photo and suburb stay hidden on this question.'}
-              </Text>
-            </View>
-            <Switch
-              value={anonymous}
-              onValueChange={handleAnonymousChange}
-              disabled={postedAsExpert}
-              trackColor={{ true: colors.primary, false: colors.borderStrong }}
-              thumbColor={colors.onPrimary}
+        {/* Photos — hidden in edit mode */}
+        {!isEditMode ? (
+          <Field label={`Photos · optional · up to ${MAX_QUESTION_PHOTOS}`}>
+            <PhotoStrip
+              photos={photos}
+              maxCount={MAX_QUESTION_PHOTOS}
+              onAdd={() => setPickerOpen(true)}
+              onRemove={removePhoto}
+              onRetry={() => submit()}
             />
-          </View>
+          </Field>
+        ) : null}
 
-          <View style={styles.previewLabelRow}>
-            <Text style={styles.previewLabel}>HOW IT WILL APPEAR</Text>
-          </View>
-          <View style={[styles.previewRow, postedAsExpert && styles.previewRowExpert]}>
-            <Avatar name={previewName} anon={anonymous} size={34} />
-            <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-              <Text style={styles.previewName}>{previewName}</Text>
-              {postedAsExpert && badgeTitle ? (
-                <Text style={styles.previewProfession}>{badgeTitle}</Text>
-              ) : null}
-              <Text style={styles.previewMeta}>
-                {previewSuburb ? `${previewSuburb} · ` : ''}just now{selectedCircle ? ` · ${selectedCircle.name}` : ''}
-              </Text>
+        {/* Anonymous toggle — hidden in edit mode */}
+        {!isEditMode ? (
+          <View style={[styles.anonCard, postedAsExpert && styles.anonCardDisabled]}>
+            <View style={styles.anonHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.anonTitle}>Post anonymously</Text>
+                <Text style={styles.anonSub}>
+                  {postedAsExpert
+                    ? 'Not available when posting as a professional — your verified identity is shown.'
+                    : 'Your name, photo and suburb stay hidden on this question.'}
+                </Text>
+              </View>
+              <Switch
+                value={anonymous}
+                onValueChange={handleAnonymousChange}
+                disabled={postedAsExpert}
+                trackColor={{ true: colors.primary, false: colors.borderStrong }}
+                thumbColor={colors.onPrimary}
+              />
             </View>
-            {postedAsExpert ? <Text style={styles.previewBadge}>✓</Text> : null}
+
+            <View style={styles.previewLabelRow}>
+              <Text style={styles.previewLabel}>HOW IT WILL APPEAR</Text>
+            </View>
+            <View style={[styles.previewRow, postedAsExpert && styles.previewRowExpert]}>
+              <Avatar name={previewName} anon={anonymous} size={34} />
+              <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+                <Text style={styles.previewName}>{previewName}</Text>
+                {postedAsExpert && badgeTitle ? (
+                  <Text style={styles.previewProfession}>{badgeTitle}</Text>
+                ) : null}
+                <Text style={styles.previewMeta}>
+                  {previewSuburb ? `${previewSuburb} · ` : ''}just now{selectedCircle ? ` · ${selectedCircle.name}` : ''}
+                </Text>
+              </View>
+              {postedAsExpert ? <Text style={styles.previewBadge}>✓</Text> : null}
+            </View>
           </View>
-        </View>
+        ) : null}
       </KeyboardScreen>
+
 
       <PhotoSourceSheet
         visible={pickerOpen}

@@ -6,7 +6,7 @@ import { isBenignDuplicateError } from '../../utils/dispatchGuards';
 import { verifiedCategoryFromCircle } from '../../utils/expertPost';
 
 const SYNC_ACTIONS = new Set([
-  'ASK_QUESTION', 'ADD_ANSWER', 'ADD_REPLY', 'DELETE_QUESTION',
+  'ASK_QUESTION', 'ADD_ANSWER', 'ADD_REPLY', 'EDIT_QUESTION', 'DELETE_QUESTION',
   'TOGGLE_UPVOTE_QUESTION', 'TOGGLE_UPVOTE_ANSWER', 'TOGGLE_UPVOTE_REPLY',
   'TOGGLE_SAVE_QUESTION', 'TOGGLE_FOLLOW', 'TOGGLE_JOIN_CIRCLE',
   'CREATE_CIRCLE', 'UPDATE_CIRCLE', 'PIN_QUESTION_TO_CIRCLE', 'UNPIN_QUESTION_FROM_CIRCLE',
@@ -105,6 +105,16 @@ export async function persistAction(action, state, userId) {
       const { error } = await supabase.from('replies').insert(replyRow);
       if (error) throw error;
       return { ...action, id };
+    }
+
+    case 'EDIT_QUESTION': {
+      const { error } = await supabase.from('questions').update({
+        title: action.title.trim(),
+        body: action.body.trim(),
+        edited_at: new Date().toISOString(),
+      }).eq('id', action.questionId).eq('author_id', userId);
+      if (error) throw error;
+      return action;
     }
 
     case 'DELETE_QUESTION': {
