@@ -263,7 +263,7 @@ export default function AskComposerScreen({ navigation, route }) {
         postedAsExpert: user?.verified ? postedAsExpert : undefined,
         professionLabel: user?.verified && postedAsExpert ? badgeTitle : undefined,
       });
-      if (res?.ok === false) throw res.error || new Error('Could not post question');
+      if (res?.ok === false) throw res.error || new Error('Could not publish post');
       Animated.timing(success, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
       // Dismiss the composer modal, then push detail on the root stack.
       // `replace` from the modal group left a shallow/dead stack where back was a no-op.
@@ -434,7 +434,7 @@ export default function AskComposerScreen({ navigation, route }) {
       <PhotoSourceSheet
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        title="Add question photo"
+        title="Add post photo"
         onLibrary={pickQuestionPhotos}
       />
 

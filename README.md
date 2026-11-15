@@ -2,7 +2,9 @@
 
 **Community Q&A for the Nepali diaspora in Australia**
 
-Chautari is a mobile-first platform where newcomers and long-term residents ask practical questions (visas, tax, healthcare, renting, careers) and get answers from the community and **verified local experts** (migration agents, accountants, GPs, mortgage brokers, and more).
+Chautari is a mobile-first platform where newcomers and long-term residents post about practical topics (visas, tax, healthcare, renting, careers) and get answers from the community and **verified local experts** (migration agents, accountants, GPs, mortgage brokers, and more).
+
+**Terminology:** a **Post** receives **Answers**; each answer can have **Replies** (one level deep). The app copy, the Supabase schema (`posts` → `answers` → `replies`) and these docs all use the same words.
 
 > *A chautari is the shaded resting place under a tree where villagers gather to talk, which is the spirit of the product.*
 
@@ -112,8 +114,8 @@ npx expo export --platform ios
 
 - **Onboarding**: phone OTP flow (mock by default), profile name/suburb/photo, newcomer opt-in for the arrival checklist
 - **Feeds**: For You with **Hot/New** toggle and **80/20 joined/discovery** composition ([`docs/FEED_COMPOSITION.md`](./docs/FEED_COMPOSITION.md), [`docs/FEED_RANKING.md`](./docs/FEED_RANKING.md)); Following tab; permanent membership in the 8 official circles; tap the Home tab again to scroll to top and refresh
-- **Circles**: official topic communities + user-created circles; join/leave, create, edit, pin a question
-- **Q&A**: ask/answer/reply, anonymous posting, photo upload, bookmarks, upvotes with karma
+- **Circles**: official topic communities + user-created circles; join/leave, create, edit, pin a post
+- **Posts**: post/answer/reply, anonymous posting, photo upload, bookmarks, upvotes with karma
 - **Verified experts**: directory with filters, expert profiles, pinned expert answers, professional post mode with a daily cap
 - **Notifications**: grouped activity feed, local digest scheduling (`expo-notifications`)
 - **Arrival checklist**: newcomer tasks with deep-links to community threads
@@ -127,7 +129,7 @@ Real image pick → compress (HEIC→JPEG) → upload → public URL → render 
 
 | Target | Limit | Config |
 |--------|-------|--------|
-| Question photos | Up to 5, ~5 MB each, JPEG/PNG/HEIC | Always on |
+| Post photos | Up to 5, ~5 MB each, JPEG/PNG/HEIC | Always on |
 | Profile avatar | Single image; native 1:1 crop + circular preview confirm | Always on |
 | Circle banner | Single image (create/edit) | Always on; accent fallback when none |
 | Answer / reply photos | Single each | `ENABLE_REPLY_PHOTOS` in `src/constants/media.js` |
@@ -147,9 +149,9 @@ App.js                      # Providers + RootNavigator
 src/
 ├── navigation/             # RootNavigator, MainTabs, ExpertsStack
 ├── screens/                # grouped by feature
-│   ├── auth/  home/  questions/  circles/  experts/
+│   ├── auth/  home/  questions/ (post screens)  circles/  experts/
 │   ├── profile/  checklist/  settings/  modals/
-├── components/             # common/ feed/ question/ circles/ profile/
+├── components/             # common/ feed/ question/ (post components) circles/ profile/
 ├── data/                   # store.js (reducer + selectors), circles.js, categories.js, checklist.js, ...
 ├── feed/                   # feedComposition.js, feedRanking.js, rankingConfig.js
 ├── hooks/                  # useForYouFeed, useLiveDataRefresh, useImagePicker, ...

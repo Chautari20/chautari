@@ -12,7 +12,7 @@ Reuse your **existing Supabase project** (same project URL, anon key, JWT secret
 ## What gets destroyed
 
 - All tables in the `public` schema from the old model
-- All rows (questions, users, etc.)
+- All rows (posts, users, etc.)
 - All **Authentication users** (if you run `003_clear_auth_users.sql`)
 
 ## Run order (Supabase Dashboard → SQL Editor)
@@ -32,9 +32,15 @@ Run each file **in order**, one at a time. Check the result panel shows success 
 | 9 | `migrations/008_expert_post_mode.sql` | Expert post / reply columns |
 | 10 | `migrations/009_expert_profile_fields.sql` | Expert badge + circle on profiles |
 | 11 | `migrations/010_relax_answer_reply_lengths.sql` | Answers and replies: any non-empty body |
-| 12 | `migrations/011_clear_seed_content.sql` | Null dangling checklist `question_id`; delete empty 002 seed user circles |
+| 12 | `migrations/011_clear_seed_content.sql` | Null dangling checklist thread ids; delete empty 002 seed user circles |
 | 13 | `migrations/012_verified_recovery_email.sql` | Recovery email columns, `email_codes`, `recovery_sessions` |
 | 14 | `migrations/013_auth_lookup_and_email_login.sql` | `auth_checks`, email-login purpose, `profiles_phone_idx` |
+| 15 | `migrations/014_rename_questions_to_posts.sql` | **Terminology:** `questions` → `posts`, `saved_questions` → `saved_posts`, `*question_id` → `*post_id`, upvote enum `post`, storage prefix `posts/` |
+| 16 | `migrations/015_normalize_profile_phones.sql` | **Phone format:** `profiles.phone` always `+614XXXXXXXX` (normaliser function + trigger, `handle_new_user` fixed, existing rows rewritten) |
+
+### Terminology (after migration 014)
+
+The product model is **Post → Answers → Replies** (a reply belongs to an answer, one level deep). The database uses the same words: `posts`, `answers`, `replies`. Older migrations (001–011) still say `questions` because applied migrations are never edited — 014 renames everything in place without touching data.
 
 ### Storage — `media` bucket (migration 006)
 
@@ -43,7 +49,7 @@ Run `006_storage_media.sql` after the schema migrations. It creates a **public**
 | Prefix | Example path | Use |
 |--------|----------------|-----|
 | `avatars/{userId}/…` | `avatars/uuid/profile/avatar-123.jpg` | Profile photo |
-| `questions/{userId}/{questionId}/…` | `questions/uuid/q_abc/0.jpg` | Question photos (up to 5) |
+| `posts/{userId}/{postId}/…` | `posts/uuid/q_abc/0.jpg` | Post photos (up to 5). Objects uploaded before 014 live under `questions/…` and stay readable |
 | `circles/{userId}/{circleId}/…` | `circles/uuid/c_xyz/banner.jpg` | Circle banner |
 | `answers/{userId}/{answerId}/…` | `answers/uuid/a_123/photo.jpg` | Answer photo (prototype flag) |
 | `replies/{userId}/{replyId}/…` | `replies/uuid/r_456/photo.jpg` | Reply photo (prototype flag) |
@@ -58,7 +64,7 @@ Client uses the **anon key** only. Never ship `service_role` in the app.
 
 ### Edge Functions / webhooks
 
-See [`functions/README.md`](./functions/README.md). Deploy `email-verification` (JWT on) plus `account-recovery`, `account-lookup`, and `email-login` (`--no-verify-jwt`). Dashboard → **Edge Functions** — the leftover `resend-email` function is unused by this app.
+See [`functions/README.md`](./functions/README.md). Deploy `email-verification` (JWT on) plus `account-recovery`, `account-lookup`, `email-login`, and `dev-login` (`--no-verify-jwt`; `dev-login` is a 404 unless `AUTH_DEV_BYPASS` is set on this project). Dashboard → **Edge Functions** — the leftover `resend-email` function is unused by this app.
 
 ---
 
@@ -81,8 +87,8 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key...
 auth.users
     └── profiles (1:1)
 circles ← circle_members → profiles
-questions → answers → replies
-follows · saved_questions · upvotes
+posts → answers → replies
+follows · saved_posts · upvotes
 notifications · reports · expert_applications
 checklist_items · checklist_progress
 ```
@@ -94,10 +100,11 @@ Karma is **computed** from upvotes (same as the prototype) — not stored.
 ## After reset
 
 1. The app uses **live Supabase data** after onboarding (official circles + checklist catalog ship in the client).
-2. Dashboard → Authentication → **Phone** on for real SMS. Leave **Email** / SMTP **off** so email-login `generateLink` does not send a second magic-link email. Mock phone accounts still use a synthetic email+password under the hood.
-3. Dev mock OTP: `EXPO_PUBLIC_AUTH_DEV_MODE=true` in a `__DEV__` build (skips sending). Login still looks up the account and will not create one. Function secret `AUTH_DEV_BYPASS=true` accepts any 6-digit **email** code on this project only.
-4. Set `EXPO_PUBLIC_AUTH_DEV_MODE=false` in `.env` when Twilio SMS is ready for real phone OTP.
-5. Test: Register → OTP → onboarding → Table Editor → `profiles`. Log in with that number. Log in with the verified recovery email.
+2. Dashboard → Authentication → **Phone** on for real SMS. Leave **Email** / SMTP **off** so `generateLink` (email-login, dev-login) does not send a second magic-link email. Dev **Register** still creates a synthetic email+password user under the hood.
+3. Dev mock OTP: any `__DEV__` build skips sending and accepts any 6 digits. **Login** looks up the account, then asks the `dev-login` function for a one-time token for that existing account — works for accounts created by real SMS, dev register or recovery, and never creates one. Function secret `AUTH_DEV_BYPASS=true` enables `dev-login` and the any-6-digit **email** code, on this project ref only.
+4. Phone numbers: `+614XXXXXXXX` everywhere (`profiles.phone`, lookup, dev login, client). Migration 015 enforces it with a trigger.
+5. Release builds always use the real path (`__DEV__` is false); `EXPO_PUBLIC_AUTH_DEV_MODE` is ignored there.
+6. Test: Register → OTP → onboarding → Table Editor → `profiles`. Log in with that number. Log in with the verified recovery email.
 
 ---
 

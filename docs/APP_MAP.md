@@ -4,6 +4,8 @@ Complete, file-by-file map of the Chautari codebase as of the structure cleanup 
 
 Stack: Expo SDK 58, React Native 0.88, React 19.3, JavaScript only, React Navigation 7, Supabase JS. No TypeScript, no path aliases, Continuous Native Generation (no `android/` or `ios/` committed).
 
+**Terminology.** The product model is **Post → Answers → Replies** (a reply belongs to an answer; one level deep). UI copy, the Supabase schema (`posts`, `answers`, `replies` — migration 014) and this document use those words. Code identifiers that pre-date the rename keep their names (`QuestionDetail`/`AskComposer` routes, `ASK_QUESTION`/`DELETE_QUESTION`/`*_QUESTION` action types, `state.questions`, `questionId` props, `screens/questions/`, `components/question/`); wherever this document says `question*` in a code span, read it as "post".
+
 ---
 
 ## 1. How to run
@@ -68,7 +70,7 @@ chautari-test/
 │   ├── migrations/             000..013 SQL (see §10). Never edit existing 000–012 files.
 │   ├── run-migrations.js       Applies migrations in order via `pg`
 │   ├── verify.js               Sanity-checks schema
-│   ├── functions/              email-verification (JWT); account-recovery, account-lookup, email-login (--no-verify-jwt)
+│   ├── functions/              email-verification (JWT); account-recovery, account-lookup, email-login, dev-login (--no-verify-jwt)
 │   ├── scripts/run-sql.js      Run arbitrary SQL file
 │   ├── scripts/grant_expert_ashish2.sql   One-off dev grant script
 │   └── README.md               How to run migrations
@@ -109,7 +111,8 @@ chautari-test/
     │   ├── useProfilePhotoFlow.js Avatar pick → crop → preview modal → confirm
     │   └── useGoBack.js        Safe goBack with tab fallback; Android back handler
     ├── services/
-    │   ├── auth.js             Phone OTP / mock password auth; email-login token verify
+    │   ├── auth.js             Phone OTP; dev login via `dev-login` function; email-login token verify
+    │   ├── ../utils/phone.js   normalizeAuPhone — the one client phone normaliser (+614XXXXXXXX)
     │   ├── authSession.js      After a session: home if complete, else first unfinished onboarding step
     │   ├── emailRecovery.js    Edge function wrappers (verify, recovery, lookup, email-login)
     │   ├── profile.js          profiles row ↔ app user mapping; completeOnboarding; updateProfile
@@ -230,7 +233,7 @@ All routes use `headerBackVisible: false` and a shared `BackButton` as `headerLe
 | `ChangePhoneEmailCode` / `ChangePhoneNew` / `ChangePhoneSmsCode` | Root | `screens/settings/ChangePhone*` | "Change phone number" / "New number" / `''` | `token`, `phoneE164` |
 | `Help` / `Terms` / `Privacy` / `About` | Root | `screens/settings/*` | "Help & FAQ" / "Terms & Conditions" / "Privacy Policy" / "About Chautari" | – |
 | `DeleteAccount` | Root | `screens/settings/DeleteAccountScreen` | "Delete account" | – |
-| `AskComposer` | Root modal group | `screens/questions/AskComposerScreen` | "Post a question", modal | `circleId?` (preselects circle, `AskComposerScreen.js:52`) |
+| `AskComposer` | Root modal group | `screens/questions/AskComposerScreen` | "New post", modal | `circleId?` (preselects circle, `AskComposerScreen.js:52`) |
 | `Report` | Root modal group | `screens/modals/ReportScreen` | "Report", modal | `kind` (`'content'`/`'expert'`), `targetTitle` |
 | `ImageViewer` | Root modal group | `screens/modals/ImageViewerScreen` | hidden, fullScreenModal, fade | `photos[]`, `index` |
 
@@ -245,7 +248,7 @@ Navigation helpers: `src/utils/navigation.js` (`useNavigationGuard` debounces do
 | `auth/SplashScreen` | Branded wait while `booted`/`authReady`/1.5 s elapse | – | – | – (RootNavigator swaps route) |
 | `auth/PhoneEntryScreen` | Log in: lookup phone, then OTP (`shouldCreateUser: false`). Pinned Register; email login + lost-number links | `lookupAccount`, `sendPhoneOtp` | – | `Otp`, `PhoneRegister`, `EmailLogin`, `RecoveryEmail` |
 | `auth/PhoneRegisterScreen` | Register: lookup phone, then OTP (`shouldCreateUser: true`) | `lookupAccount`, `sendPhoneOtp` | – | `Otp`, `PhoneEntry` |
-| `auth/OtpScreen` | 6-digit SMS. Mock login: `signInDevForPhone` (no sign-up). Mock register: `ensureSupabaseUserForPhone` | `verifyPhoneOtp`, `finishAuthNavigation` | via `authSession` | home / first incomplete onboarding step |
+| `auth/OtpScreen` | 6-digit SMS. Mock login: `signInDevForPhone` → `dev-login` function (works for any existing account, never signs up). Mock register: `ensureSupabaseUserForPhone`. After the code only "no account" / "wrong code" / "too many" show verbatim; other failures → `AUTH_COPY.loginFailed` + raw detail in `__DEV__` (`toLoginError`) | `verifyPhoneOtp`, `finishAuthNavigation` | via `authSession` | home / first incomplete onboarding step |
 | `auth/EmailLoginScreen` / `EmailLoginCodeScreen` | Email login for a **verified** recovery email | `lookupAccount`, `sendEmailLogin`, `verifyEmailLoginCode`, `verifyEmailLoginToken` | via `authSession` | home / onboarding |
 | `auth/EmailScreen` / `EmailCodeScreen` | Recovery email + 6-digit code via `email-verification` | `sendVerifyEmail`, `verifyEmailCode`, `lookupAccount` (mock taken-check) | `SET_AUTH_PROFILE` / `LOGOUT` | `ProfileSuburb` or sign-out to Log in |
 | `auth/Recovery*` | Lost-phone flow via `account-recovery` (no JWT) | `startAccountRecovery` … `completeAccountRecovery` | – | back to `PhoneEntry` with new number |
@@ -320,7 +323,7 @@ Persisted to `chautari.state.v3` on every change after hydration, excluding `boo
 
 | Action | Payload | Reducer effect (`store.js`) | Supabase write (`persist.js`) | Dispatched from |
 |---|---|---|---|---|
-| `HYDRATE` | `payload` (persisted state) | Restore persisted users/questions; ensure official circles; defaults; `booted: true` | – | DataProvider boot |
+| `HYDRATE` | `payload` (persisted state) | Restore persisted users/posts; ensure official circles; defaults; `booted: true` | – | DataProvider boot |
 | `BOOTED` | – | `booted: true` | – | DataProvider boot (no/invalid storage) |
 | `AUTH_READY` | – | `authReady: true` | – | DataProvider boot |
 | `SET_AUTH` | `userId` | `authUserId` | – | DataProvider, OtpScreen, ProfileSuburbScreen |
@@ -332,11 +335,11 @@ Persisted to `chautari.state.v3` on every change after hydration, excluding `boo
 | `LOGOUT` | – | `currentUserId: null`, `authUserId: null` | – | SettingsScreen |
 | `DELETE_ACCOUNT` | – | `buildInitialState()` (full wipe) | – | DeleteAccountScreen |
 | `ASK_QUESTION` | `id`, `title`, `body`, `circleId`, `anonymous`, `photos`, `postedAsExpert?`, `professionLabel?` | Enforce daily caps; expert posts never anonymous; expert circle override; prepend question (300-333) | insert `questions` | AskComposerScreen |
-| `MERGE_LIVE_DATA` | `payload` bundle | Local-pending `me` posts + live questions; merge users/circles; union upvotes/saves/UUID follows/joins/checklist | – | DataProvider initial load, `refreshFromServer` |
+| `MERGE_LIVE_DATA` | `payload` bundle | Local-pending `me` posts + live posts; merge users/circles; union upvotes/saves/UUID follows/joins/checklist | – | DataProvider initial load, `refreshFromServer` |
 | `ADD_ANSWER` | `questionId`, `id`, `body`, `anonymous`, `photoUrl` | Append answer | insert `answers` | QuestionDetailScreen |
 | `ADD_REPLY` | `questionId`, `answerId`, `id`, `body`, `anonymous`, `photoUrl`, `postedAsExpert?`, `professionLabel?` | Append reply | insert `replies` | QuestionDetailScreen |
 | `TOGGLE_UPVOTE_QUESTION` | `questionId` | ±1, track in `myUpvotes.questions` (449-464) | `upvotes` insert/delete + bump `questions.upvotes` | QuestionCard/QuestionDetail |
-| `TOGGLE_SAVE_QUESTION` | `questionId` | toggle `savedQuestions` (466-474) | `saved_questions` insert/delete | QuestionDetail, QuestionCard |
+| `TOGGLE_SAVE_QUESTION` | `questionId` | toggle `savedQuestions` (466-474) | `saved_posts` insert/delete | QuestionDetail, QuestionCard |
 | `TOGGLE_UPVOTE_ANSWER` | `answerId` | ±1; milestone notification; expert-upvote bonus for answer author when voter is verified (476-527) | `upvotes` + bump `answers.upvotes` | QuestionDetail |
 | `TOGGLE_UPVOTE_REPLY` | `replyId` | ±1 (529-550) | `upvotes` + bump `replies.upvotes` | QuestionDetail |
 | `TOGGLE_FOLLOW` | `userId` | toggle following; adjust `followers` count; no self-follow | `follows` insert/delete (skipped for `'me'` / non-UUID) | FollowButton |
@@ -350,8 +353,8 @@ Persisted to `chautari.state.v3` on every change after hydration, excluding `boo
 | `TOGGLE_JOIN_CIRCLE` | `circleId` | no-op for official; toggle + memberCount (654-670) | `circle_members` insert/delete | CirclesDirectory, CircleDetail, SeeAll, CreateCircle |
 | `SET_DIGEST_MODE` | `mode` | set (672-673) | update `profiles.digest_mode` | SettingsScreen |
 | `UPDATE_CIRCLE` | `circleId`, `name`, `description`, `accentId`, `imageUrl?` | creator-only, non-official, unique name (675-695) | update `circles` where creator = me | EditCircleScreen |
-| `PIN_QUESTION_TO_CIRCLE` | `circleId`, `questionId` | creator-only; question must be in circle (697-708) | update `circles.pinned_question_id` | QuestionDetail |
-| `UNPIN_QUESTION_FROM_CIRCLE` | `circleId`, `questionId` | creator-only; must match current pin (723-733) | update `circles.pinned_question_id = null` | QuestionDetail |
+| `PIN_QUESTION_TO_CIRCLE` | `circleId`, `questionId` | creator-only; post must be in circle (697-708) | update `circles.pinned_post_id` | QuestionDetail |
+| `UNPIN_QUESTION_FROM_CIRCLE` | `circleId`, `questionId` | creator-only; must match current pin (723-733) | update `circles.pinned_post_id = null` | QuestionDetail |
 | `TOGGLE_CHECKLIST_ITEM` | `itemId` | toggle (710-718) | `checklist_progress` insert/delete | ArrivalChecklistScreen |
 | `DISMISS_CHECKLIST_CARD` | – | `checklistCardDismissed: true` | update `profiles.checklist_card_dismissed` | HomeScreen |
 
@@ -388,7 +391,7 @@ Notifications/checklist: `unreadNotifs`, `isChecklistItemDone`, `checklistDoneCo
 
 `useLiveDataRefresh({ onFocus })` (`hooks/useLiveDataRefresh.js`): on screen focus, refetch at most every 45 s; the returned function forces a refetch (pull-to-refresh on Home, QuestionDetail). Home tab re-tap (when Home is already selected) scrolls to top and calls the same `onRefresh` (`screens/home/HomeScreen.js:118-127`).
 
-### Sequence: ask a question
+### Sequence: create a post
 
 ```mermaid
 sequenceDiagram
@@ -399,25 +402,25 @@ sequenceDiagram
   participant PA as liveData/persist
   participant SB as Supabase
   participant R as reducer
-  U->>AC: Tap Post
+  U->>AC: Tap Publish post
   AC->>AC: check daily cap, expert profile, validity, online
   AC->>AC: id = `q_<base36 time>`
   opt photos pending
     AC->>MS: uploadQuestionPhotos(id, assets)
-    MS->>SB: storage.upload media/questions/<uid>/...
+    MS->>SB: storage.upload media/posts/<uid>/...
     SB-->>MS: public URLs
   end
   AC->>SD: dispatch ASK_QUESTION {id, title, body, circleId, anonymous, photos, postedAsExpert?}
   SD->>PA: persistAction (if configured + signed in)
-  PA->>SB: insert questions row
+  PA->>SB: insert posts row
   SB-->>PA: ok / error
   PA-->>SD: action
-  SD->>R: reduce → prepend question (caps re-checked)
+  SD->>R: reduce → prepend post (caps re-checked)
   SD-->>AC: { ok: true }
   AC->>AC: goBack() then root.navigate('QuestionDetail', { questionId: id, justPosted: true })
 ```
 
-### Sequence: answer a question
+### Sequence: answer a post
 
 ```mermaid
 sequenceDiagram
@@ -437,8 +440,8 @@ sequenceDiagram
   end
   QD->>SD: dispatch ADD_ANSWER {questionId, id, body, anonymous, photoUrl}
   SD->>PA: persistAction
-  PA->>SB: insert answers row
-  SD->>R: append answer to question.answers
+  PA->>SB: insert answers row (post_id)
+  SD->>R: append answer to post.answers
   SD-->>QD: { ok: true } → toast "Answer posted"
 ```
 
@@ -460,7 +463,7 @@ sequenceDiagram
     SD-->>C: { ok: true, skipped: true }
   else
     SD->>PA: persistAction
-    alt parent question is live
+    alt parent post is live
       PA->>SB: insert/delete upvotes(user_id, 'answer', id)
       PA->>SB: read answers.upvotes, update ±1
     end
@@ -476,15 +479,15 @@ sequenceDiagram
 Entry: `screens/home/HomeScreen.js:55` → `hooks/useForYouFeed.js` → `feed/feedComposition.js:composeForYouFeed` → `feed/feedRanking.js` + `feed/rankingConfig.js`. Specs: [`FEED_COMPOSITION.md`](./FEED_COMPOSITION.md), [`FEED_RANKING.md`](./FEED_RANKING.md).
 
 1. **Pools** (`feedComposition.js`)
-   - Joined pool: questions whose `circleId` (or legacy `category`) is in `effectiveJoinedCircleIds()` (official circles always included). Includes own posts. (`buildJoinedPool`, 21-24)
+   - Joined pool: posts whose `circleId` (or legacy `category`) is in `effectiveJoinedCircleIds()` (official circles always included). Includes own posts. (`buildJoinedPool`, 21-24)
    - Discovery pool: non-joined, not own, circle public (`isCirclePublic`; `isPrivate !== true`), Hot score ≥ `DISCOVERY_MIN_SCORE = 2.0`. (`buildDiscoveryPool`, 27-48)
 2. **Sort** each pool: `new` → `createdAt DESC, id DESC`; `hot` → `_hotScore DESC, id DESC` (`feedRanking.js:4-13`).
 3. **Hot score** (`rankingConfig.js:33-50`): `engagement / (hours + 2) ** 1.5` where `engagement = 1 + upvotes + 2·answers + 8·hasExpertAnswer`.
 4. **Merge** 4 joined : 1 discovery, then backfill joined; discovery capped by the pattern (`mergeSortedPools`, 52-73). `JOINED_SLOTS_PER_DISCOVERY = round(0.8/0.2) = 4`.
-5. **Snapshot + paging** (`useForYouFeed.js`): `referenceTime` is captured once per snapshot; `snapshotGen` bumps on refresh, on switching to Hot, and whenever the questions fingerprint (`id:createdAt:answerCount`) changes. Visible window grows by `PAGE_SIZE = 10` via `loadMore`. Switching to New keeps the reference time.
+5. **Snapshot + paging** (`useForYouFeed.js`): `referenceTime` is captured once per snapshot; `snapshotGen` bumps on refresh, on switching to Hot, and whenever the posts fingerprint (`id:createdAt:answerCount`) changes. Visible window grows by `PAGE_SIZE = 10` via `loadMore`. Switching to New keeps the reference time.
 6. **Home decorations** (`HomeScreen.js`): `CirclesRecommendRow` inserted after index 4 when > 5 items; "N new today" pill from `newTodayCount` (24 h); `ChecklistFeedCard` when `isNewcomerActive()` and not dismissed; four `QuestionCardSkeleton`s while the local `loading` flag is true (`HomeScreen.js:45, 63-71, 207-210` — cleared 500 ms after the first `requestIdleCallback`).
 
-Following tab: `followingFeed()` = questions authored or answered by followed users, newest first (`store.js:1032-1038`). Circle feeds: `questionsInCircle` newest first excluding the pinned question (`store.js:964-970`).
+Following tab: `followingFeed()` = posts authored or answered by followed users, newest first (`store.js:1032-1038`). Circle feeds: `questionsInCircle` newest first excluding the pinned post (`store.js:964-970`).
 
 ---
 
@@ -494,13 +497,14 @@ Following tab: `followingFeed()` = questions authored or answered by followed us
 
 | File | Exports | Notes |
 |---|---|---|
-| `services/auth.js` | `toE164Au`, `usesMockOtp`, `ensureSupabaseUserForPhone`, `signInDevForPhone`, `sendPhoneOtp`, `verifyPhoneOtp`, `verifyEmailLoginToken`, `getSession`, `signOut`, `onAuthStateChange` | Mock register may create `user+<digits>@chautari.app`. Mock login never creates. Real login: `signInWithOtp` `shouldCreateUser: false`. |
+| `services/auth.js` | `toE164Au`, `usesMockOtp`, `ensureSupabaseUserForPhone`, `signInDevForPhone`, `sendPhoneOtp`, `verifyPhoneOtp`, `verifyEmailLoginToken`, `getSession`, `signOut`, `onAuthStateChange` | Mock register may create `user+<digits>@chautari.app`. Mock login (`__DEV__` only) calls the `dev-login` function → `token_hash` → `verifyOtp`; works for real-SMS, dev and recovered accounts and never creates one. Real login: `signInWithOtp` `shouldCreateUser: false`. `mapAuthError` keeps the raw provider error in `devDetail`. |
+| `utils/phone.js` | `normalizeAuPhone`, `isAuMobile`, `auNationalDigits` | The only client phone normaliser. `04…`, `+61 4…`, `61 4…`, `4…` → `+614XXXXXXXX`; anything else → `null`. Mirrors `_shared/phone.ts` and SQL `normalize_au_phone()` (015). |
 | `services/authSession.js` | `finishAuthNavigation` | `SET_AUTH_PROFILE` then home (`RESTORE_SESSION`) or first incomplete onboarding route. |
 | `services/emailRecovery.js` | verify / recovery / `lookupAccount` / `sendEmailLogin` / `verifyEmailLoginCode` | Invokes edge functions; friendly `error` plus `__DEV__` `devDetail`. |
-| `services/profile.js` | `normalizePhoneE164`, `ensureProfilePhone`, `profileRowToUser`, `profileMetaFromRow`, `fetchProfile`, `updateProfile`, `completeOnboarding` | `completeOnboarding` ensures the auth user exists then updates `profiles` (name, suburb, photo_url, newcomer, is_founding_member = true, phone). |
+| `services/profile.js` | `ensureProfilePhone`, `profileRowToUser`, `profileMetaFromRow`, `fetchProfile`, `updateProfile`, `completeOnboarding` | `completeOnboarding` requires an existing session (never creates an auth user) then updates `profiles` (name, suburb, photo_url, newcomer, is_founding_member = true, phone normalised). |
 | `services/mediaStorage.js` | `stagePickerAssetToFile`, `getMediaPublicUrl`, `prepareImageForUpload`, `uploadMediaFile`, `uploadImageAsset`, `uploadPreparedImage`, `uploadAvatar`, `uploadQuestionPhotos`, `uploadCircleImage`, `uploadAnswerPhoto`, `uploadReplyPhoto`, `uploadExpertCredential` | Pipeline: stage → resize ≤ 1920 px, JPEG q0.82 → base64 → ArrayBuffer → `storage.from('media').upload(<prefix>/<uid>/<file>)`. Prefixes in `constants/media.js:MEDIA_PATH_PREFIX`. Requires signed-in user (RLS). |
 | `services/digest.js` | `ensureNotificationPermissions`, `composeDigestSummary`, `cancelDigestSchedule`, `scheduleDigest`, `addDigestInAppNotification`, `runDigestPreview` | Local `expo-notifications` only. Daily 18:00 or weekly Monday 18:00 (`weekday: 2`), identifier `chautari-daily-digest`. Tapping routes to Circles tab (`components/common/DigestManager.js`). |
-| `services/liveData/fetch.js` | `fetchLiveBundle` | 7 parallel queries: `questions(*, answers(*, replies(*)))`, non-official `circles`, my `upvotes`, `saved_questions`, `follows`, `circle_members`, `checklist_progress`; then `profiles in (…uuids)`. Non-UUID ids filtered. |
+| `services/liveData/fetch.js` | `fetchLiveBundle` | 7 parallel queries: `posts(*, answers(*, replies(*)))`, non-official `circles`, my `upvotes`, `saved_posts`, `follows`, `circle_members`, `checklist_progress`; then `profiles in (…uuids)`. Non-UUID ids filtered. |
 | `services/liveData/persist.js` | `shouldSyncAction`, `persistAction` | See action table (§5). |
 | `services/liveData/mappers.js` | `authorToApp`, `authorToDb`, `mapReply`, `mapAnswer`, `mapQuestion`, `mapProfileRow`, `mapCircle` | snake_case rows → camelCase app objects; `created_at` → epoch ms. |
 | `services/liveData/ids.js` | `isValidUuid`, `filterValidUuids`, `makeId` | |
@@ -548,53 +552,55 @@ Following tab: `followingFeed()` = questions authored or answered by followed us
 | `001_chautari_schema.sql` | Enums, all tables, indexes, `handle_new_user` trigger (auto-insert `profiles` on `auth.users` insert), `set_updated_at` triggers, RLS enable + policies |
 | `002_seed_reference_data.sql` | 8 official circles (ids match `data/categories.js`) plus leftover seed user circles; 10 `checklist_items` |
 | `003_clear_auth_users.sql` | `DELETE FROM auth.identities / auth.users` (dev reset) |
-| `004_rls_content_updates.sql` | UPDATE policies on `questions`/`answers`/`replies` for any authenticated user (needed for vote-count bumps) |
-| `005_flexible_social_refs.sql` | Drop FK `saved_questions.question_id`; `follows.following_id` → TEXT, drop FK, add no-self-follow check (allows seed ids) |
-| `006_storage_media.sql` | `circles.image_url`, `answers.photo_url`, `replies.photo_url`; create public bucket `media` (5 MB, jpeg/png/webp); storage policies: public read, authenticated insert/update/delete under `<prefix>/<auth.uid()>/…` for prefixes avatars, questions, circles, answers, replies |
+| `004_rls_content_updates.sql` | UPDATE policies on `questions`/`answers`/`replies` (now `posts`) for any authenticated user (needed for vote-count bumps) |
+| `005_flexible_social_refs.sql` | Drop FK `saved_questions.question_id` (now `saved_posts.post_id`); `follows.following_id` → TEXT, drop FK, add no-self-follow check (allows seed ids) |
+| `006_storage_media.sql` | `circles.image_url`, `answers.photo_url`, `replies.photo_url`; create public bucket `media` (5 MB, jpeg/png/webp); storage policies: public read, authenticated insert/update/delete under `<prefix>/<auth.uid()>/…` for prefixes avatars, questions (now posts), circles, answers, replies |
 | `007_credentials_storage.sql` | Adds `credentials` prefix to the insert policy |
-| `008_expert_post_mode.sql` | `questions.posted_as_expert`, `questions.profession_label`, `replies.posted_as_expert`, `replies.profession_label` |
+| `008_expert_post_mode.sql` | `questions.posted_as_expert`, `questions.profession_label` (now on `posts`), `replies.posted_as_expert`, `replies.profession_label` |
 | `009_expert_profile_fields.sql` | `profiles.expert_badge_title`, `profiles.expert_circle_id` (FK circles, set null) |
 | `010_relax_answer_reply_lengths.sql` | Replace `answers_body_check` and `replies_body_check` with `char_length(btrim(body)) > 0` |
-| `011_clear_seed_content.sql` | Null `checklist_items.question_id` when the question is missing; delete empty 002 seed user circles |
+| `011_clear_seed_content.sql` | Null `checklist_items.question_id` (now `post_id`) when the thread is missing; delete empty 002 seed user circles |
 | `012_verified_recovery_email.sql` | `profiles.email` + `email_verified_at` (service_role write only); unique verified email; `email_codes`; `recovery_sessions`; `profile_is_complete()` |
 | `013_auth_lookup_and_email_login.sql` | `auth_checks` (service_role only, IP rate limit); `email_codes.purpose` adds `login`; `profiles_phone_idx` |
+| `014_rename_questions_to_posts.sql` | **Terminology rename, no data change.** `questions` → `posts`; `saved_questions` → `saved_posts`; `answers.question_id`, `saved_posts.question_id`, `notifications.question_id`, `checklist_items.question_id` → `post_id`; `circles.pinned_question_id` → `pinned_post_id`; constraints/indexes/policies/trigger renamed `questions_*` → `posts_*`; enum `upvote_target` value `question` → `post`; storage insert policy allows prefix `posts` (replaces `questions`; existing `questions/…` objects stay readable) |
+| `015_normalize_profile_phones.sql` | **One phone format.** `normalize_au_phone(text)` (AU mobile → `+614XXXXXXXX`, else unchanged); `BEFORE INSERT OR UPDATE OF phone` trigger on `profiles`; `handle_new_user()` normalises `auth.users.phone` / metadata phone (real-SMS sign-ups previously landed as `614…` without `+` and were invisible to lookup); rewrites existing rows. `auth.users.phone` is left as Supabase stores it (digits only) |
 
-`013` is applied on the hosted project. Whether `012` is applied is implied by `013` succeeding (`email_codes` must exist).
+`010`, `013` and `014` are applied on the hosted project; `015` is pending (`node supabase/run-migrations.js 015`). Whether `012` is applied is implied by `013` succeeding (`email_codes` must exist).
 
-### Tables (after 013)
+### Tables (after 014)
 
 | Table | Key columns | Notes |
 |---|---|---|
 | `profiles` | `id UUID PK → auth.users`, `phone`, `email`, `email_verified_at`, `name`, `suburb`, `photo_url`, `bio`, `verified`, `verified_category`, `profession`, `contact`, `is_founding_member`, `newcomer`, `newcomer_since`, `digest_mode` (enum daily/weekly/off), `checklist_card_dismissed`, `followers_count`, `expert_badge_title`, `expert_circle_id`, timestamps | Auto-created by trigger. Clients cannot write `email` / `email_verified_at`. Raw `email` is not selectable by anon/authenticated. |
 | `email_codes` | `id`, `user_id`, `email`, `purpose` (verify_email/recovery/change_phone/login), `code_hash`, `expires_at`, `attempts`, `consumed_at` | RLS on, no policies — service_role only |
-| `auth_checks` | `id`, `ip`, `created_at` | RLS on, no policies — service_role only. 10 / IP / minute for `account-lookup` |
+| `auth_checks` | `id`, `ip`, `created_at` | RLS on, no policies — service_role only. 10 / IP / minute for `account-lookup` and `dev-login` |
 | `recovery_sessions` | `id`, `user_id`, `token_hash`, `expires_at`, `consumed_at`, `new_phone` | RLS on, no policies — service_role only |
-| `circles` | `id TEXT PK`, `name`, `handle UNIQUE`, `description`, `icon`, `accent_id`, `creator_id UUID`, `is_official`, `pinned_question_id → questions`, `member_count`, `image_url`, timestamps | |
+| `circles` | `id TEXT PK`, `name`, `handle UNIQUE`, `description`, `icon`, `accent_id`, `creator_id UUID`, `is_official`, `pinned_post_id → posts`, `member_count`, `image_url`, timestamps | |
 | `circle_members` | `(circle_id, user_id) PK` | |
-| `questions` | `id TEXT PK`, `circle_id → circles (RESTRICT)`, `author_id UUID`, `anonymous`, `title` (10–120 chars), `body` (30–4000 chars), `photos JSONB`, `upvotes`, `views`, `posted_as_expert`, `profession_label`, timestamps | |
-| `answers` | `id TEXT PK`, `question_id → questions (CASCADE)`, `author_id`, `anonymous`, `body` (non-empty after 010), `upvotes`, `photo_url`, `created_at` | |
+| `posts` | `id TEXT PK`, `circle_id → circles (RESTRICT)`, `author_id UUID`, `anonymous`, `title` (10–120 chars), `body` (30–4000 chars), `photos JSONB`, `upvotes`, `views`, `posted_as_expert`, `profession_label`, timestamps | was `questions` before 014; ids still start with `q_` |
+| `answers` | `id TEXT PK`, `post_id → posts (CASCADE)`, `author_id`, `anonymous`, `body` (non-empty after 010), `upvotes`, `photo_url`, `created_at` | |
 | `replies` | `id TEXT PK`, `answer_id → answers (CASCADE)`, `author_id`, `anonymous`, `body` (non-empty after 010), `upvotes`, `photo_url`, `posted_as_expert`, `profession_label`, `created_at` | |
 | `follows` | `(follower_id UUID, following_id TEXT) PK`, no self-follow | App writes UUID `following_id` only |
-| `saved_questions` | `(user_id, question_id) PK` | no FK to questions since 005 |
-| `upvotes` | `(user_id, target_type enum question/answer/reply, target_id TEXT) PK` | |
-| `notifications` | `id`, `user_id`, `type` enum, `text`, `actor_id`, `question_id`, `read` | **Not written by the app** (notifications are local only) |
+| `saved_posts` | `(user_id, post_id) PK` | no FK to posts since 005 |
+| `upvotes` | `(user_id, target_type enum post/answer/reply, target_id TEXT) PK` | |
+| `notifications` | `id`, `user_id`, `type` enum, `text`, `actor_id`, `post_id`, `read` | **Not written by the app** (notifications are local only) |
 | `reports` | `id`, `reporter_id`, `kind` enum, `target_title`, `reason`, `detail` | insert-only from app |
 | `expert_applications` | `id`, `user_id`, `category`, `custom_category`, `status` enum (default pending), `credentials_url` | one pending per user (partial unique index) |
 | `expert_upvote_bonuses` | `user_id PK`, `count` | **Not written by the app** (bonuses are local `expertUpvoteBonuses`) |
-| `checklist_items` | `id`, `title`, `explainer`, `question_id`, `sort_order` | reference data |
+| `checklist_items` | `id`, `title`, `explainer`, `post_id`, `sort_order` | reference data |
 | `checklist_progress` | `(user_id, item_id) PK`, `done_at` | |
 
 ### RLS summary (`001:263-344`, `004`)
 
-- Public SELECT: `profiles`, `circles`, `circle_members`, `questions`, `answers`, `replies`, `follows`, `upvotes`, `checklist_items`, `expert_upvote_bonuses`.
-- Own-row SELECT only: `saved_questions`, `notifications`, `expert_applications`, `checklist_progress`.
+- Public SELECT: `profiles`, `circles`, `circle_members`, `posts`, `answers`, `replies`, `follows`, `upvotes`, `checklist_items`, `expert_upvote_bonuses`.
+- Own-row SELECT only: `saved_posts`, `notifications`, `expert_applications`, `checklist_progress`.
 - INSERT requires `auth.uid()` to equal the owner column (`author_id`, `user_id`, `follower_id`, `reporter_id`, `creator_id`); circles additionally `is_official = FALSE`.
-- UPDATE: own `profiles`; `circles` by creator; `questions`/`answers`/`replies` by any authenticated user (004, for vote counters); own `notifications`.
-- DELETE: own `questions`, `circle_members`, `follows`, `saved_questions`, `upvotes`, `checklist_progress`. No DELETE policy on `answers`/`replies`/`circles` (so the app cannot delete those).
+- UPDATE: own `profiles`; `circles` by creator; `posts`/`answers`/`replies` by any authenticated user (004, for vote counters); own `notifications`.
+- DELETE: own `posts`, `circle_members`, `follows`, `saved_posts`, `upvotes`, `checklist_progress`. No DELETE policy on `answers`/`replies`/`circles` (so the app cannot delete those).
 
 ### Storage
 
-Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>` with prefix ∈ {avatars, questions, circles, answers, replies, credentials}. Client paths come from `constants/media.js:MEDIA_PATH_PREFIX` and `services/mediaStorage.js`.
+Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>` with prefix ∈ {avatars, posts, circles, answers, replies, credentials} (014; objects uploaded before 014 live under `questions/…` and remain readable). Client paths come from `constants/media.js:MEDIA_PATH_PREFIX` and `services/mediaStorage.js`. A legacy `question-photos` bucket with its own `question_photos_*` policies exists on the hosted project but is not used by the app or any migration in this repo.
 
 ---
 
@@ -605,15 +611,15 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 | Verified experts: max **2** professional posts/day; members: max **5** member posts/day (local-day buckets) | `src/data/store.js:23-24`, enforced `300-310`, selectors `1061-1081`; UI alert `screens/questions/AskComposerScreen.js:204-212` |
 | Professional (expert-mode) posts are never anonymous and are forced into the expert's declared circle | `store.js:311-314`; mirrored in `persist.js:57-58` |
 | Expert must have badge title (2–60 chars) + circle before posting professionally | `utils/expertPost.js:3-4, 32-35`; redirect `AskComposerScreen.js:213-217` |
-| Question title 10–120 chars, body 30–4000 chars (client) | `AskComposerScreen.js:27, 70-71`; DB check `001:105-106` |
-| Up to 5 question photos, ~5 MB each, resized to ≤ 1920 px JPEG q0.82 | `constants/media.js:6-9` |
+| Post title 10–120 chars, body 30–4000 chars (client) | `AskComposerScreen.js:27, 70-71`; DB check `001:105-106` |
+| Up to 5 post photos, ~5 MB each, resized to ≤ 1920 px JPEG q0.82 | `constants/media.js:6-9` |
 | Answers and replies: any non-empty body | `QuestionDetailScreen.js:346, 480`; DB `010` |
 | Answer/reply photos enabled by flag | `constants/media.js:2` (`ENABLE_REPLY_PHOTOS = true`) |
 | Official circles (8) are permanent membership: always joined, join toggle is a no-op | `store.js:133-140, 654-658`; ids from `data/categories.js:2-11` |
 | Circle names must be unique (case/handle based); edit/pin/unpin only by creator and never on official circles | `store.js:632, 677-679, 697-701, 723-726`; `data/circles.js:isCircleNameTaken` |
-| Pinned question must belong to the circle | `store.js:701` |
+| Pinned post must belong to the circle | `store.js:701` |
 | Cannot follow yourself | `store.js:553-554` |
-| Karma = 10 × answer upvotes + 2 × question upvotes + 1 × reply upvotes + 25 × expert-upvote bonuses | `utils/karma.js:3-25` |
+| Karma = 10 × answer upvotes + 2 × post upvotes + 1 × reply upvotes + 25 × expert-upvote bonuses | `utils/karma.js:3-25` |
 | When a verified user upvotes someone else's answer, that author gets +1 expert bonus (reverted on un-upvote) | `store.js:507-512` |
 | Milestone notification when an upvoted answer crosses 5/10/20/50/100/200/500 | `utils/format.js:55-67`, `store.js:491-503` |
 | Newcomer features (checklist card, profile entry) active for **60 days** after opting in | `constants/newcomer.js:2`, `store.js:1093-1096` |
@@ -624,7 +630,9 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 | OTP: 6 digits, 3 attempts, 60 s resend cooldown; mock mode accepts any 6 digits | `screens/auth/OtpScreen.js` (`LENGTH`, `attempts`, `setSeconds(60)`) |
 | Sign-in is phone OTP (login vs register) or a code to a **verified** recovery email. Email is not a password | `PhoneEntryScreen`, `EmailLoginScreen`, `012`/`013` |
 | Login must not create an account (`shouldCreateUser: false`); register may | `services/auth.js` `sendPhoneOtp` |
-| Mock OTP only if `EXPO_PUBLIC_AUTH_DEV_MODE === 'true'` and `__DEV__`; mock login never sign-ups | `lib/supabase.js` `isAuthDevMode`, `signInDevForPhone` |
+| Mock OTP only in `__DEV__` builds; mock login never signs up and works for every existing account (server `dev-login`, gated by `AUTH_DEV_BYPASS` + project allow-list, 404 elsewhere) | `lib/supabase.js` `isAuthDevMode`, `services/auth.js` `signInDevForPhone`, `supabase/functions/dev-login` |
+| Phone numbers are stored and compared as `+614XXXXXXXX` everywhere (`profiles.phone`, lookup, dev login, client) | `utils/phone.js`, `_shared/phone.ts`, SQL `normalize_au_phone()` + trigger (015) |
+| After the code step, "No account is registered…" is shown only when lookup / server says so; other failures show "We couldn't log you in" (+ raw error in `__DEV__`) | `utils/authCopy.js` `toLoginError`, `OtpScreen.js` |
 | Dev register may create `user+<digits>@chautari.app` with a fixed password | `services/auth.js` `ensureSupabaseUserForPhone` |
 | Digest: daily 18:00 or weekly Monday 18:00 local notification; off disables | `services/digest.js:67-69` |
 | Splash shows at least 1.5 s | `navigation/RootNavigator.js:66` |
@@ -643,7 +651,7 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 | Profile sync (name, suburb, avatar, bio, newcomer, digest, checklist dismissed) | Working when configured | `services/profile.js`, `persist.js` |
 | Ask / answer / reply with photos | Working; synced when Supabase is configured | §6 |
 | Upvotes, saves, follows, joins | Working; optimistic with server toggle | `persist.js` |
-| For You feed (Hot/New, 80/20) | Working, client-side over live questions | §7 |
+| For You feed (Hot/New, 80/20) | Working, client-side over live posts | §7 |
 | Following feed | Working (local filter) | `store.js:1032` |
 | Circles create/edit/pin | Working | |
 | Expert directory, profiles, verified application | Working; **approval is automatic** (prototype) | `VerifiedApplicationScreen.js:79` |
@@ -651,7 +659,7 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 | Notifications screen | Local only (milestones, digest); DB `notifications` table unused by app | `store.js`, `services/digest.js` |
 | Digest push | Local scheduled notification only; no server push | `services/digest.js` |
 | Arrival checklist | Working; progress synced | |
-| Search | Local filter over all loaded questions | `screens/home/SearchScreen.js` |
+| Search | Local filter over all loaded posts | `screens/home/SearchScreen.js` |
 | Reports | Insert-only to Supabase; no moderation UI | `ReportScreen.js` |
 | Offline handling | Mock `online` flag toggled in Settings; real connectivity not detected | `data/network.js` |
 | Dark mode | Working, persisted | `theme/ThemeContext.js` |
@@ -677,7 +685,7 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 Header block (`HomeScreen.js:~140-180`): segment control, Hot/New toggle (`FeedSortToggle`), live pill, `ChecklistFeedCard`. List: `QuestionFeedList` → `QuestionCard`; `CirclesRecommendRow` injected via `insertAfterIndex`. Top bar: Search and Notifications buttons (`187-190`).
 
 **"How does a new user get into the app?"**
-`RootNavigator` auth group starts at `PhoneEntry` (Log in). Register → `PhoneRegister` → `Otp` (`createUser: true`) → name → recovery email → suburb → `completeOnboarding`. Returning user: Log in looks up `profiles.phone` then OTP (`shouldCreateUser: false`); complete profile → `RESTORE_SESSION`, else first incomplete onboarding step. Email login: verified email → `email-login` → `verifyOtp`.
+`RootNavigator` auth group starts at `PhoneEntry` (Log in). Register → `PhoneRegister` → `Otp` (`createUser: true`) → name → recovery email → suburb → `completeOnboarding`. Returning user: Log in looks up `profiles.phone` then OTP (`shouldCreateUser: false`; in `__DEV__` mock mode the code step calls `dev-login` instead, which issues a magic-link token for the existing account); complete profile → `RESTORE_SESSION`, else first incomplete onboarding step. Email login: verified email → `email-login` → `verifyOtp`.
 
 **"How do I add a Supabase column?"**
 Add a new `supabase/migrations/014_*.sql` (never edit older files), run `node supabase/run-migrations.js 014`, map the column in `services/liveData/mappers.js` and/or `services/profile.js`, write it in `persist.js` for the relevant action.

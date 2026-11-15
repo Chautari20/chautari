@@ -1,6 +1,10 @@
 /**
  * One-off: run SQL migration files against remote Supabase (uses SUPABASE_DB_URL from .env).
+<<<<<<< HEAD
  * Usage: node supabase/run-migrations.js [000|001|002|003|004|005|006|007|008|009|010|011|012|013|014|all]
+=======
+ * Usage: node supabase/run-migrations.js [000|001|002|003|004|005|006|007|008|009|010|011|012|013|014|015|all]
+>>>>>>> master
  */
 const fs = require('fs');
 const path = require('path');
@@ -10,7 +14,7 @@ function loadEnvFile() {
   const envPath = path.join(__dirname, '..', '.env');
   if (!fs.existsSync(envPath)) throw new Error('Missing .env with SUPABASE_DB_URL');
   const env = {};
-  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+  for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^([^#=]+)=(.*)$/);
     if (m) env[m[1].trim()] = m[2].trim();
   }
@@ -32,7 +36,12 @@ const FILES = {
   '011': '011_clear_seed_content.sql',
   '012': '012_verified_recovery_email.sql',
   '013': '013_auth_lookup_and_email_login.sql',
+<<<<<<< HEAD
   '014': '014_founding_member_number.sql',
+=======
+  '014': '014_rename_questions_to_posts.sql',
+  '015': '015_normalize_profile_phones.sql',
+>>>>>>> master
 };
 
 async function runFile(client, name) {

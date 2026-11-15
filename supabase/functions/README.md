@@ -12,27 +12,30 @@ Set these on the project. Do not commit them.
 | `RESEND_API_KEY` | Sending codes and the phone-change notice |
 | `EMAIL_FROM` | From address, e.g. `Chautari <noreply@yourdomain>` |
 | `EMAIL_TEST_MODE` | `true` only in dev. Combined with `*@example.test` uses code `123456` and skips send |
-| `AUTH_DEV_BYPASS` | `true` only in this prototype. Any 6-digit email code is accepted **and** outbound email is skipped. Ignored unless `SUPABASE_URL` is project `hlrvifbztfizncodlrru` |
+| `AUTH_DEV_BYPASS` | `true` only in this prototype. Any 6-digit email code is accepted, outbound email is skipped, **and** the `dev-login` function is enabled. Ignored unless `SUPABASE_URL` is project `hlrvifbztfizncodlrru` |
 | `TWILIO_ACCOUNT_SID` | Account recovery SMS via Twilio Verify |
 | `TWILIO_AUTH_TOKEN` | Account recovery SMS |
 | `TWILIO_VERIFY_SERVICE_SID` | Account recovery SMS |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Injected by Supabase on deploy |
 
-JWT: `email-verification` requires a signed-in user. `account-lookup`, `email-login`, and `account-recovery` are public (`--no-verify-jwt`).
+JWT: `email-verification` requires a signed-in user. `account-lookup`, `email-login`, `account-recovery`, and `dev-login` are public (`--no-verify-jwt`).
 
 ## Migrations
 
-Apply in order. Never edit `000`–`012`.
+Apply in order. Never edit an applied migration.
 
 | File | Needed for |
 |---|---|
 | `012_verified_recovery_email.sql` | `profiles.email` / `email_verified_at`, `email_codes`, `recovery_sessions` |
 | `013_auth_lookup_and_email_login.sql` | `auth_checks` rate limit, `email_codes.purpose = 'login'`, `profiles_phone_idx` |
+| `015_normalize_profile_phones.sql` | `profiles.phone` always `+614XXXXXXXX` — required for `account-lookup` / `dev-login` to find real-SMS accounts |
 
 ```bash
 # from chautari-test/  (or paste the SQL in Dashboard → SQL Editor)
 node supabase/run-migrations.js 012
 node supabase/run-migrations.js 013
+node supabase/run-migrations.js 014   # questions → posts rename
+node supabase/run-migrations.js 015   # phone normalisation
 ```
 
 ## Deploy
@@ -43,6 +46,7 @@ npx supabase functions deploy email-verification
 npx supabase functions deploy account-recovery --no-verify-jwt
 npx supabase functions deploy account-lookup --no-verify-jwt
 npx supabase functions deploy email-login --no-verify-jwt
+npx supabase functions deploy dev-login --no-verify-jwt
 ```
 
 `verify_jwt` flags are also in `supabase/config.toml`.
@@ -59,7 +63,7 @@ npx supabase secrets set AUTH_DEV_BYPASS=true
 |---|---|
 | `EXPO_PUBLIC_SUPABASE_URL` | Project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Anon key |
-| `EXPO_PUBLIC_AUTH_DEV_MODE` | Must be the string `true` **and** a `__DEV__` build to mock SMS/email send. Release ignores it. Login still looks up the account; mock login never creates a user |
+| `EXPO_PUBLIC_AUTH_DEV_MODE` | Legacy; any `__DEV__` build mocks SMS/email send. Release ignores it. Login still looks up the account; mock login goes through `dev-login` and never creates a user |
 
 ## Functions
 
@@ -69,10 +73,13 @@ npx supabase secrets set AUTH_DEV_BYPASS=true
 | `email-login` | off | `{ action: 'send' \| 'verify', email, code? }` | send: issues a `login` code. verify: `{ token_hash, type }` for `supabase.auth.verifyOtp` |
 | `email-verification` | on | `{ action, purpose, email?, code? }` | Onboarding / change-phone. Verify also copies email onto `auth.users` |
 | `account-recovery` | off | `{ action, email, code?, token?, newPhone? }` | Lost-number flow |
+| `dev-login` | off | `{ phone }` | **Dev only.** 404 unless `AUTH_DEV_BYPASS` + allow-listed project. Looks up `profiles.phone`; 404 `noAccountPhone` if missing; otherwise `{ user_id, token_hash, type }` for `supabase.auth.verifyOtp`. Phone-only accounts get a confirmed placeholder `dev-login+<uid>@chautari.invalid` on `auth.users` so `generateLink` can run. Never creates a user. Rate-limited via `auth_checks` |
 
 Friendly errors only (`_shared/http.ts` `MSG`). Raw provider errors stay in function logs.
 
 Leave **Authentication → Email** / SMTP off so `generateLink` does not send a second magic-link email. Phone auth stays on for real SMS.
+
+**Phone format:** every function normalises with `_shared/phone.ts` → `+614XXXXXXXX` and compares against `profiles.phone`, which migration 015 keeps in the same form via trigger. `auth.users.phone` is Supabase's own column (digits, no `+`) and is never compared directly.
 
 ## Tests
 

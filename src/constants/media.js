@@ -14,7 +14,7 @@ export const PICKER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/heic', 'ima
 
 export const MEDIA_PATH_PREFIX = {
   AVATAR: 'avatars',
-  QUESTION: 'questions',
+  POST: 'posts', // was 'questions' before migration 014; legacy objects stay readable
   CIRCLE: 'circles',
   ANSWER: 'answers',
   REPLY: 'replies',

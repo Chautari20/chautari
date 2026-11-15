@@ -139,8 +139,8 @@ Run on a development build (not Expo Go) with `.env` configured.
 3. **Home For You** — Hot/New toggle, pull-to-refresh, scroll pagination, "N new today" pill if any, checklist card if newcomer and not dismissed.
 4. **Home tab re-tap** — while already on Home and scrolled down, tap Home: list scrolls to top and refreshes. Switching from Circles/Experts/Profile to Home must **not** force-scroll.
 5. **Following tab** — empty-state suggested experts; follow one; posts from followed users appear.
-6. **Ask** — FAB opens composer; title 10–120 / body 30–4000 enforced; post lands on QuestionDetail; back returns to Home (not a dead stack).
-7. **Thread** — answer (any non-empty body), nested reply, upvote question/answer/reply, save, report, open image viewer, tap author → profile.
+6. **Post** — FAB opens composer; title 10–120 / body 30–4000 enforced; post lands on QuestionDetail; back returns to Home (not a dead stack).
+7. **Thread** — answer (any non-empty body), nested reply, upvote post/answer/reply, save, report, open image viewer, tap author → profile.
 8. **Circles** — directory sections, See all, join/leave a user circle (official circles have no leave), open a circle, pin/unpin as creator, create a circle, edit a circle.
 9. **Experts** — directory filters, expert profile, Become verified (auto-approves), professional post mode + daily cap alert.
 10. **Profile** — edit name/suburb/photo, My Posts, Saved Posts, checklist (if newcomer), Settings.

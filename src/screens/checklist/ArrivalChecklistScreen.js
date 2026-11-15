@@ -86,7 +86,7 @@ export default function ArrivalChecklistScreen({ navigation }) {
           />
           <Text style={styles.celebrateEmoji}>🎉</Text>
           <Text style={styles.celebrateTitle}>You made it through the first 30 days</Text>
-          <Text style={styles.celebrateBody}>The basics are sorted — keep posting on Chautari when the next question comes up.</Text>
+          <Text style={styles.celebrateBody}>The basics are sorted — keep posting on Chautari whenever you need a hand.</Text>
         </Animated.View>
       ) : null}
 

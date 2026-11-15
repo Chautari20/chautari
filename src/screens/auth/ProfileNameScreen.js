@@ -35,7 +35,7 @@ export default function ProfileNameScreen({ navigation, route }) {
       )}
     >
       <Text style={styles.title}>What should we call you?</Text>
-      <Text style={styles.sub}>This is the name shown on your questions and answers (unless you post anonymously).</Text>
+      <Text style={styles.sub}>This is the name shown on your posts and answers (unless you post anonymously).</Text>
       <Field label="Full name" hint="Required">
         <Input placeholder="e.g. Sita Gurung" value={name} onChangeText={setName} autoFocus autoCapitalize="words" />
       </Field>

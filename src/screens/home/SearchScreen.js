@@ -91,7 +91,7 @@ export default function SearchScreen({ navigation, route }) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
     >
       <View style={styles.searchBar}>
-        <Input placeholder="Search questions…" value={query} onChangeText={setQuery} returnKeyType="search" style={{ flex: 1 }} />
+        <Input placeholder="Search posts…" value={query} onChangeText={setQuery} returnKeyType="search" style={{ flex: 1 }} />
       </View>
 
       <Pressable style={styles.filterToggle} onPress={() => setShowFilters((s) => !s)}>

@@ -11,7 +11,7 @@ import { useTheme } from '../../theme/ThemeContext';
 const ICONS = { answer: '💬', milestone: '🎉', follow: '➕', expert: '🎓', expert_answer: '✓', expert_karma: '🪔', digest: '📬' };
 const DAY = 24 * 60 * 60 * 1000;
 
-// Rich, grouped notifications. "An expert answered your question" is visually
+// Rich, grouped notifications. "An expert answered your post" is visually
 // elevated above ordinary entries. Marks everything read shortly after view.
 export default function NotificationsScreen({ navigation }) {
   const { colors, spacing, font, radius, shadow } = useTheme();

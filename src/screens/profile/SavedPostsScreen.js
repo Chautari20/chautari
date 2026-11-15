@@ -38,7 +38,7 @@ export default function SavedPostsScreen({ navigation }) {
           <EmptyState
             icon="🔖"
             title="Nothing saved yet"
-            subtitle="Tap the bookmark on any question to save it here for later."
+            subtitle="Tap the bookmark on any post to save it here for later."
           />
         )}
       />

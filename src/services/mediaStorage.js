@@ -229,7 +229,7 @@ export async function uploadQuestionPhotos(questionId, assets) {
   const urls = [];
   for (let i = 0; i < assets.length; i += 1) {
     const url = await uploadImageAsset(assets[i], {
-      prefix: MEDIA_PATH_PREFIX.QUESTION,
+      prefix: MEDIA_PATH_PREFIX.POST,
       entityId: questionId,
       fileName: `${i}.jpg`,
     });

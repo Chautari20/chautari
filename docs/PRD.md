@@ -1,9 +1,9 @@
 # Chautari — Build Brief (Prototype Scope)
 
-Mobile-first community Q&A app for the Nepali diaspora in Australia (Greater Melbourne, v1). Users ask questions and get answers from community members and verified local experts (migration agents, accountants, GPs, etc.). Stack: React Native (Expo). English only. No dark mode.
+Mobile-first community app for the Nepali diaspora in Australia (Greater Melbourne, v1). Users publish posts and get answers from community members and verified local experts (migration agents, accountants, GPs, etc.); each answer can have replies (one level). Terminology: **Post → Answers → Replies**. Stack: React Native (Expo). English only. No dark mode.
 
 ## Personas
-- Asker: recent grad on a visa, asks visa/tax/life questions, wants fast credible answers, sometimes anonymously.
+- Poster: recent grad on a visa, posts about visa/tax/life topics, wants fast credible answers, sometimes anonymously.
 - Verified Expert: e.g. MARA migration agent, answers to build reputation, has a public profile with a contact link.
 - Community Answerer: long-time resident who answers from lived experience.
 
@@ -18,7 +18,7 @@ Mobile-first community Q&A app for the Nepali diaspora in Australia (Greater Mel
 8. Categories Browser (grid of 8 categories with counts)
 9. Search (bar + filters: category, suburb, date range) + Search Results
 10. Ask Composer (title, body, category dropdown, up to 5 photos, anonymous toggle)
-11. Question Detail (question + threaded answers; verified-expert answers pinned to top)
+11. Post Detail (post + threaded answers; verified-expert answers pinned to top)
 12. Answer Composer modal (body, link insert, anonymous toggle)
 13. Expert Directory (browse all, filter by category + suburb)
 14. Expert Profile (bio, profession, suburb, contact button, posts feed, follower count)
@@ -36,7 +36,7 @@ Migration · Tax & Super · Health & Medical · Real Estate · Loans & Mortgages
 
 ## Core rules (enforce client-side where possible)
 - Auth: phone OTP only, no passwords. Multi-device ok. MOCK the OTP.
-- Question: title 10–120 chars, body 30–4000 chars, category required, up to 5 photos, anonymous toggle hides name/photo/suburb.
+- Post: title 10–120 chars, body 30–4000 chars, category required, up to 5 photos, anonymous toggle hides name/photo/suburb.
 - Answer: any user, body 20–4000 chars, links allowed, no photos, anonymous toggle. Verified expert answers pinned to top of thread.
 - Reply: one level of nesting only, 5–1000 chars, links allowed, no photos, anonymous toggle.
 - Upvotes: one per user per answer/reply, toggle off by tapping again. Milestone notifications at 5,10,20,50,100,200,500.
@@ -50,7 +50,7 @@ Migration · Tax & Super · Health & Medical · Real Estate · Loans & Mortgages
 Direct messages, blocking, editing posts, best-answer marking, photos in replies, @-mentions, notification preferences, profile privacy, in-app payments, bilingual UI, dark mode, public web app, real backend.
 
 ## Data layer
-Mock everything locally — in-memory or AsyncStorage. Seed ~15 sample questions across categories, a dozen answers, and 3 verified experts based on the personas above. No Twilio, Supabase, Firebase, or real API keys.
+Mock everything locally — in-memory or AsyncStorage. Seed ~15 sample posts across categories, a dozen answers, and 3 verified experts based on the personas above. No Twilio, Supabase, Firebase, or real API keys.
 
 ## Done criteria
 App launches clean with `npx expo start`, all listed screens reachable, core flows work (signup → feed → ask → answer → expert profile → follow). Include a README explaining what's implemented vs mocked and how to run it.
