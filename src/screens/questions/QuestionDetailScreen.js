@@ -187,18 +187,9 @@ export default function QuestionDetailScreen({ navigation, route }) {
       });
     }
     if (isMine) {
-      options.push({
-<<<<<<< HEAD
-        text: 'Edit question',
-        onPress: () => {
-          navigation.navigate('AskComposer', { editQuestionId: questionId });
-        },
-      });
+      
       options.push({
         text: 'Delete question',
-=======
-        text: 'Delete post',
->>>>>>> master
         style: 'destructive',
         onPress: () => {
           runAfterAlert(async () => {
@@ -217,18 +208,8 @@ export default function QuestionDetailScreen({ navigation, route }) {
       options.push({ text: 'Report post', style: 'destructive', onPress: () => navigate('Report', { kind: 'content', targetTitle: question.title }) });
     }
     options.push({ text: 'Cancel', style: 'cancel' });
-<<<<<<< HEAD
-    Alert.alert(isMine ? 'Your question' : 'Question options', '', options);
-  }, [question, isMine, dispatch, questionId, showToast, navigate, goBack, circleById, isCircleCreator, navigation]);
-
-  // Keep a stable ref so the header button always calls the latest openMenu
-  // without needing to re-register header options on every render.
-  const openMenuRef = useRef(openMenu);
-  useEffect(() => { openMenuRef.current = openMenu; }, [openMenu]);
-=======
     Alert.alert(isMine ? 'Your post' : 'Post options', null, options);
   }, [question, isMine, dispatch, questionId, showToast, navigate, goBack, circleById, isCircleCreator]);
->>>>>>> master
 
   const toggleSave = useCallback(async () => {
     const wasSaved = isSaved(questionId);
