@@ -6,10 +6,11 @@ import { CHECKLIST_ITEMS, CHECKLIST_TOTAL } from '../../data/checklist';
 
 export default function ArrivalChecklistScreen({ navigation }) {
   const { dispatch } = useData();
-  const { checklistDoneCount, isChecklistItemDone, isNewcomerActive } = useSelectors();
+  const { checklistDoneCount, isChecklistItemDone, me } = useSelectors();
   const { colors, spacing, font, radius, shadow } = useTheme();
   const styles = useMemo(() => createStyles(colors, spacing, font, radius, shadow), [colors, spacing, font, radius, shadow]);
 
+  const newcomerActive = !!me()?.newcomer;
   const done = checklistDoneCount();
   const pct = done / CHECKLIST_TOTAL;
   const allDone = done === CHECKLIST_TOTAL;
@@ -17,7 +18,6 @@ export default function ArrivalChecklistScreen({ navigation }) {
   const flash = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(1)).current;
 
-  const newcomerActive = isNewcomerActive();
 
   useEffect(() => {
     if (!newcomerActive) navigation.goBack();

@@ -33,8 +33,6 @@ CREATE TABLE public.profiles (
   profession      TEXT,
   contact         TEXT,
   is_founding_member BOOLEAN NOT NULL DEFAULT FALSE,
-  newcomer        BOOLEAN NOT NULL DEFAULT FALSE,
-  newcomer_since  TIMESTAMPTZ,
   digest_mode     public.digest_mode NOT NULL DEFAULT 'daily',
   checklist_card_dismissed BOOLEAN NOT NULL DEFAULT FALSE,
   followers_count INTEGER NOT NULL DEFAULT 0 CHECK (followers_count >= 0),
@@ -214,24 +212,6 @@ CREATE UNIQUE INDEX expert_applications_user_pending_idx
 CREATE TABLE public.expert_upvote_bonuses (
   user_id   UUID PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
   count     INTEGER NOT NULL DEFAULT 0 CHECK (count >= 0)
-);
-
--- ---------------------------------------------------------------------------
--- Newcomer checklist
--- ---------------------------------------------------------------------------
-CREATE TABLE public.checklist_items (
-  id          TEXT PRIMARY KEY,
-  title       TEXT NOT NULL,
-  explainer   TEXT NOT NULL,
-  question_id TEXT, -- intended questions.id once Q&A is seeded (no FK until then)
-  sort_order  SMALLINT NOT NULL DEFAULT 0
-);
-
-CREATE TABLE public.checklist_progress (
-  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  item_id    TEXT NOT NULL REFERENCES public.checklist_items(id) ON DELETE CASCADE,
-  done_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (user_id, item_id)
 );
 
 -- ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 **Community Q&A for the Nepali diaspora in Australia**
 
-Chautari is a mobile-first platform where newcomers and long-term residents post about practical topics (visas, tax, healthcare, renting, careers) and get answers from the community and **verified local experts** (migration agents, accountants, GPs, mortgage brokers, and more).
+Chautari is a mobile-first platform where long-term residents post about practical topics (visas, tax, healthcare, renting, careers) and get answers from the community and **verified local experts** (migration agents, accountants, GPs, mortgage brokers, and more).
 
 **Terminology:** a **Post** receives **Answers**; each answer can have **Replies** (one level deep). The app copy, the Supabase schema (`posts` → `answers` → `replies`) and these docs all use the same words.
 
@@ -112,13 +112,12 @@ npx expo export --platform ios
 
 ## Key features
 
-- **Onboarding**: phone OTP flow (mock by default), profile name/suburb/photo, newcomer opt-in for the arrival checklist
+- **Onboarding**: phone OTP flow (mock by default), profile name/suburb/photo
 - **Feeds**: For You with **Hot/New** toggle and **80/20 joined/discovery** composition ([`docs/FEED_COMPOSITION.md`](./docs/FEED_COMPOSITION.md), [`docs/FEED_RANKING.md`](./docs/FEED_RANKING.md)); Following tab; permanent membership in the 8 official circles; tap the Home tab again to scroll to top and refresh
 - **Circles**: official topic communities + user-created circles; join/leave, create, edit, pin a post
 - **Posts**: post/answer/reply, anonymous posting, photo upload, bookmarks, upvotes with karma
 - **Verified experts**: directory with filters, expert profiles, pinned expert answers, professional post mode with a daily cap
 - **Notifications**: grouped activity feed, local digest scheduling (`expo-notifications`)
-- **Arrival checklist**: newcomer tasks with deep-links to community threads
 - **Trust & safety**: report flow, account deletion, help/terms/privacy/about screens
 
 ---

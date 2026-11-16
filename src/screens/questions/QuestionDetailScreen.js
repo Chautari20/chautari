@@ -187,7 +187,10 @@ export default function QuestionDetailScreen({ navigation, route }) {
       });
     }
     if (isMine) {
-      
+      options.push({
+        text: 'Edit question',
+        onPress: () => navigate('AskComposer', { editQuestionId: questionId }),
+      });
       options.push({
         text: 'Delete question',
         style: 'destructive',
@@ -218,20 +221,30 @@ export default function QuestionDetailScreen({ navigation, route }) {
     showToast(wasSaved ? 'Removed from saved' : 'Saved for later', { tone: wasSaved ? 'default' : 'success' });
   }, [dispatch, questionId, showToast, isSaved]);
 
+  const openEditPost = useCallback(() => {
+    if (!isMine || !questionId) return;
+    navigate('AskComposer', { editQuestionId: questionId });
+  }, [isMine, questionId, navigate]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={toggleSave} hitSlop={10}>
-            <Text style={{ fontSize: 20, color: saved ? colors.primary : colors.textMuted }}>{saved ? '🔖' : '🔖'}</Text>
+            <Text style={{ fontSize: 20, color: saved ? colors.primary : colors.textMuted }}>🔖</Text>
           </Pressable>
-          <Pressable onPress={() => openMenuRef.current()} hitSlop={10}>
+          {isMine ? (
+            <Pressable onPress={openEditPost} hitSlop={10} accessibilityLabel="Edit post">
+              <Text style={{ fontSize: 18, color: colors.primary, fontWeight: '800' }}>✏️</Text>
+            </Pressable>
+          ) : null}
+          <Pressable onPress={openMenu} hitSlop={10} accessibilityLabel="More post actions">
             <Text style={{ fontSize: 20, color: colors.textMuted }}>⋯</Text>
           </Pressable>
         </View>
       ),
     });
-  }, [navigation, question, isMine, saved, colors, toggleSave]);
+  }, [navigation, question, isMine, saved, colors, toggleSave, openEditPost, openMenu]);
 
   // Split: verified-expert answers pinned to the top, community answers below.
   const { pinned, community } = useMemo(() => {

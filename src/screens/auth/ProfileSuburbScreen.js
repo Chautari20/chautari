@@ -24,7 +24,6 @@ export default function ProfileSuburbScreen({ navigation, route }) {
   const name = route.params?.name || state.authProfileName || 'You';
   const [suburb, setSuburb] = useState(null);
   const [photo, setPhoto] = useState(null);
-  const [newcomer, setNewcomer] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,14 +62,13 @@ export default function ProfileSuburbScreen({ navigation, route }) {
           name,
           suburb,
           photo: photoUrlValue,
-          newcomer,
           phone: route.params?.phoneE164 || route.params?.phone,
         });
         authUserId = completed?.userId ?? null;
         foundingMemberNumber = completed?.foundingMemberNumber ?? null;
         if (authUserId) dispatch({ type: 'SET_AUTH', userId: authUserId });
       }
-      dispatch({ type: 'SIGN_UP', name, newcomer, authUserId, foundingMemberNumber });
+      dispatch({ type: 'SIGN_UP', name, authUserId, foundingMemberNumber });
       if (suburb || photoUrlValue) dispatch({ type: 'UPDATE_PROFILE', patch: { suburb, photo: photoUrlValue } });
     } catch (e) {
       setError(e?.message || 'Could not save profile. Try again.');

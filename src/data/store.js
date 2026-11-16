@@ -7,7 +7,6 @@ import { computeKarmaForUser } from '../utils/karma';
 import { slugify, isCircleNameTaken, buildOfficialCircles, officialCircleIds } from './circles';
 import { verifiedCategoryFromCircle } from '../utils/expertPost';
 import { sanitizePhotoUrlsForStorage, sanitizeProfilePhoto } from '../utils/photos';
-import { NEWCOMER_WINDOW_MS } from '../constants/newcomer';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { getSession, onAuthStateChange } from '../services/auth';
 import { fetchProfile, profileMetaFromRow, profileRowToUser } from '../services/profile';
@@ -120,8 +119,6 @@ function buildInitialState() {
     digestMode: 'daily', // 'daily' | 'weekly' | 'off'
     checklistDone: [],
     checklistCardDismissed: false,
-    newcomer: false,
-    newcomerSince: null,
   };
 }
 
@@ -151,8 +148,6 @@ function reducer(state, action) {
         digestMode: p.digestMode || 'daily',
         checklistDone: p.checklistDone || [],
         checklistCardDismissed: !!p.checklistCardDismissed,
-        newcomer: p.newcomer ?? (p.currentUserId === 'me'),
-        newcomerSince: p.newcomerSince ?? (p.currentUserId === 'me' ? Date.now() : null),
         authHasName: !!p.authHasName,
         authEmailVerified: !!p.authEmailVerified,
         authProfileName: p.authProfileName || '',
@@ -194,8 +189,6 @@ function reducer(state, action) {
         following: state.following || [],
         notifications: state.notifications || [],
         joinedCircles: state.joinedCircles?.length ? state.joinedCircles : defaultJoinedCircles(),
-        newcomer: meta.newcomer ?? false,
-        newcomerSince: meta.newcomerSince ?? null,
         digestMode: meta.digestMode || state.digestMode,
         checklistCardDismissed: meta.checklistCardDismissed ?? state.checklistCardDismissed,
       };
@@ -224,8 +217,6 @@ function reducer(state, action) {
         following: state.following || [],
         notifications: state.notifications || [],
         joinedCircles: defaultJoinedCircles(),
-        newcomer: !!action.newcomer,
-        newcomerSince: action.newcomer ? Date.now() : null,
       };
     }
 
@@ -1057,11 +1048,6 @@ export function useSelectors() {
   const checklistDoneCount = () => state.checklistDone.length;
   const isQuestionOwner = (q) => !!q && q.authorId === 'me';
 
-  const isNewcomerActive = () =>
-    !!state.newcomer
-    && !!state.newcomerSince
-    && Date.now() - state.newcomerSince < NEWCOMER_WINDOW_MS;
-
   return {
     state, userById, me, isFollowing,
     hasUpvotedQuestion, hasUpvotedAnswer, hasUpvotedReply, isSaved,
@@ -1075,6 +1061,6 @@ export function useSelectors() {
     circleById, isJoinedCircle, effectiveJoinedCircleIds, joinedCirclesList, joinedUserCirclesList, officialCircles, userCircles,
     circleQuestionCount, circleActivitySince, questionsInCircle, pinnedQuestionInCircle,
     expertsInCircle, isCircleCreator, recommendedCircles, karmaFor,
-    isChecklistItemDone, checklistDoneCount, isQuestionOwner, isNewcomerActive,
+    isChecklistItemDone, checklistDoneCount, isQuestionOwner,
   };
 }

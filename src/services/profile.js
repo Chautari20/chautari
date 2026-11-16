@@ -4,7 +4,7 @@ import { normalizeAuPhone } from '../utils/phone';
 /** Public profile columns — never include email. Matches 012 GRANT SELECT. */
 export const PROFILE_PUBLIC_COLUMNS = [
   'id', 'phone', 'name', 'suburb', 'photo_url', 'bio', 'verified', 'verified_category',
-  'profession', 'contact', 'is_founding_member', 'founding_member_number', 'newcomer', 'newcomer_since',
+  'profession', 'contact', 'is_founding_member', 'founding_member_number',
   'digest_mode', 'checklist_card_dismissed', 'followers_count', 'created_at',
   'updated_at', 'expert_badge_title', 'expert_circle_id', 'email_verified_at',
 ].join(', ');
@@ -62,8 +62,6 @@ export function profileRowToUser(row) {
 export function profileMetaFromRow(row) {
   if (!row) return {};
   return {
-    newcomer: !!row.newcomer,
-    newcomerSince: row.newcomer_since ? new Date(row.newcomer_since).getTime() : null,
     digestMode: row.digest_mode || 'daily',
     checklistCardDismissed: !!row.checklist_card_dismissed,
   };
@@ -75,10 +73,6 @@ function patchToRow(patch) {
   if (patch.suburb !== undefined) row.suburb = patch.suburb;
   if (patch.photo !== undefined) row.photo_url = patch.photo;
   if (patch.bio !== undefined) row.bio = patch.bio;
-  if (patch.newcomer !== undefined) {
-    row.newcomer = patch.newcomer;
-    row.newcomer_since = patch.newcomer ? new Date().toISOString() : null;
-  }
   if (patch.isFoundingMember !== undefined) row.is_founding_member = patch.isFoundingMember;
   if (patch.digestMode !== undefined) row.digest_mode = patch.digestMode;
   if (patch.checklistCardDismissed !== undefined) {
@@ -116,7 +110,7 @@ export async function updateProfile(patch) {
   return data;
 }
 
-export async function completeOnboarding({ name, suburb, photo, newcomer, phone }) {
+export async function completeOnboarding({ name, suburb, photo, phone }) {
   if (!isSupabaseConfigured()) return null;
 
   // Onboarding always runs inside an existing session (OTP / dev login / email
@@ -130,7 +124,6 @@ export async function completeOnboarding({ name, suburb, photo, newcomer, phone 
     name,
     suburb: suburb || null,
     photo: photo || null,
-    newcomer: !!newcomer,
     isFoundingMember: true,
   });
   const normalizedPhone = phone ? normalizeAuPhone(phone) : null;

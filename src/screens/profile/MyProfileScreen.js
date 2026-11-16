@@ -21,7 +21,7 @@ function formatJoined(ts) {
 }
 
 export default function MyProfileScreen({ navigation }) {
-  const { me, state, karmaFor, checklistDoneCount, isNewcomerActive } = useSelectors();
+  const { me, state, karmaFor, checklistDoneCount } = useSelectors();
   useLiveDataRefresh({ onFocus: true });
   const user = me();
   const { colors, shadow, spacing, font, radius } = useTheme();
@@ -29,11 +29,11 @@ export default function MyProfileScreen({ navigation }) {
   const styles = useMemo(() => createStyles(colors, shadow, spacing, font, radius), [colors, shadow, spacing, font, radius]);
 
   const followingCount = state.following.length;
-
+  const newcomerActive = !!user?.newcomer;
   const checklistProgress = `${checklistDoneCount()} of ${CHECKLIST_TOTAL} done`;
 
   const options = [
-    ...(isNewcomerActive() ? [{
+    ...(newcomerActive ? [{
       key: 'checklist',
       label: 'First 30 Days checklist',
       sublabel: checklistProgress,

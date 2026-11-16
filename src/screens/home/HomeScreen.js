@@ -32,7 +32,7 @@ export default function HomeScreen({ navigation }) {
     canExpertPostProfessionalToday, canPostMemberToday,
     expertProfessionalPostsToday, expertDailyPostLimit,
     memberPostsToday, memberDailyPostLimit,
-    checklistDoneCount, isNewcomerActive, unreadNotifs, state,
+    checklistDoneCount, unreadNotifs, state,
   } = useSelectors();
   const { dispatch } = useData();
   const { online } = useNetwork();
@@ -136,7 +136,7 @@ export default function HomeScreen({ navigation }) {
     setReplayKey((k) => k + 1);
   }, [forYou]);
 
-  const showChecklistCard = tab === 'foryou' && isNewcomerActive() && !state.checklistCardDismissed;
+  const showChecklistCard = tab === 'foryou' && !state.checklistCardDismissed;
   const unread = unreadNotifs();
 
   const header = (

@@ -22,7 +22,7 @@ ON CONFLICT (id) DO UPDATE SET
   is_official = EXCLUDED.is_official;
 
 INSERT INTO public.circles (id, name, handle, description, icon, accent_id, creator_id, is_official, member_count, created_at) VALUES
-  ('c_footscray', 'Footscray Nepali Community',    'footscray-nepali',    'Local meetups, temple events and helping newcomers in the west.',     '🍲', 'saffron', NULL, FALSE, 340, now() - interval '90 days'),
+  ('c_footscray', 'Footscray Nepali Community',    'footscray-nepali',    'Local meetups, temple events in the west.',     '🍲', 'saffron', NULL, FALSE, 340, now() - interval '90 days'),
   ('c_fhb',       'First Home Buyers AU',          'first-home-buyers-au','Deposits, FHOG, stamp duty and the emotional rollercoaster of buying.','🏠', 'teal',    NULL, FALSE, 120, now() - interval '60 days'),
   ('c_monash',    'Monash Uni Nepalese Students',  'monash-nepalese',     'Units, placements, casual work and surviving exam season together.',    '🎓', 'plum',    NULL, FALSE, 85,  now() - interval '45 days'),
   ('c_cricket',   'Cricket Melbourne',             'cricket-melbourne',   'Weekend games, gear swaps and finding a side that needs one more.',   '🏏', 'forest',  NULL, FALSE, 60,  now() - interval '30 days'),
