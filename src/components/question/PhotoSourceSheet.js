@@ -61,41 +61,38 @@ export default function PhotoSourceSheet({
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
       presentationStyle="overFullScreen"
       statusBarTranslucent
       onRequestClose={onClose}
       onDismiss={handleDismiss}
     >
-      <View style={styles.root} pointerEvents={visible ? 'auto' : 'none'}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Dismiss">
-          <View />
-        </Pressable>
-        <View style={styles.sheet} pointerEvents="box-none">
-          <Pressable onPress={() => {}}>
-            <Text style={styles.title}>{title}</Text>
-            {onCamera ? (
-              <Pressable style={styles.row} onPress={() => queueAction('camera')}>
-                <Text style={styles.icon}>📸</Text>
-                <Text style={styles.label}>Take a photo</Text>
-              </Pressable>
-            ) : null}
-            <Pressable style={styles.row} onPress={() => queueAction('library')}>
-              <Text style={styles.icon}>🖼</Text>
-              <Text style={styles.label}>Choose from library</Text>
+      {/* Full-screen pressable — tapping outside the sheet closes it */}
+      <Pressable style={styles.root} onPress={onClose} accessibilityLabel="Dismiss photo options">
+        {/* Sheet — inner Pressable stops touches from bubbling to the backdrop */}
+        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.title}>{title}</Text>
+          {onCamera ? (
+            <Pressable style={styles.row} onPress={() => queueAction('camera')}>
+              <Text style={styles.icon}>📸</Text>
+              <Text style={styles.label}>Take a photo</Text>
             </Pressable>
-            {showRemove ? (
-              <Pressable style={styles.row} onPress={() => queueAction('remove')}>
-                <Text style={styles.icon}>🗑️</Text>
-                <Text style={[styles.label, { color: colors.danger }]}>Remove photo</Text>
-              </Pressable>
-            ) : null}
-            <Pressable style={[styles.row, styles.cancel]} onPress={onClose}>
-              <Text style={[styles.label, styles.cancelText]}>Cancel</Text>
-            </Pressable>
+          ) : null}
+          <Pressable style={styles.row} onPress={() => queueAction('library')}>
+            <Text style={styles.icon}>🖼</Text>
+            <Text style={styles.label}>Choose from library</Text>
           </Pressable>
-        </View>
-      </View>
+          {showRemove ? (
+            <Pressable style={styles.row} onPress={() => queueAction('remove')}>
+              <Text style={styles.icon}>🗑️</Text>
+              <Text style={[styles.label, { color: colors.danger }]}>Remove photo</Text>
+            </Pressable>
+          ) : null}
+          <Pressable style={[styles.row, styles.cancel]} onPress={onClose}>
+            <Text style={[styles.label, styles.cancelText]}>Cancel</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -103,20 +100,14 @@ export default function PhotoSourceSheet({
 const createStyles = (colors, spacing, font, radius, shadow) => StyleSheet.create({
   root: {
     flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: colors.overlay,
     ...Platform.select({
       ios: { zIndex: 9999 },
       android: { elevation: 9999 },
     }),
   },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.overlay,
-  },
   sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,

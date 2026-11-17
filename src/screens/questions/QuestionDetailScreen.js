@@ -444,9 +444,35 @@ export default function QuestionDetailScreen({ navigation, route }) {
           <Pressable onPress={() => openReply(ans.id)} hitSlop={6}>
             <Text style={styles.replyBtn}>↩ Reply</Text>
           </Pressable>
-          <Pressable onPress={() => navigate('Report', { kind: 'content', targetTitle: 'this answer' })} hitSlop={6}>
-            <Text style={styles.reportBtn}>Report</Text>
-          </Pressable>
+          {ans.authorId === 'me' ? (
+            <Pressable
+              hitSlop={6}
+              onPress={() => {
+                Alert.alert('Your answer', '', [
+                  {
+                    text: 'Delete answer',
+                    style: 'destructive',
+                    onPress: () => runAfterAlert(async () => {
+                      try {
+                        const res = await dispatch({ type: 'DELETE_ANSWER', questionId, answerId: ans.id });
+                        if (res?.ok === false) throw res.error || new Error('Could not delete');
+                        showToast('Answer deleted', { tone: 'success' });
+                      } catch (e) {
+                        Alert.alert('Could not delete', e?.message || 'Try again.');
+                      }
+                    }),
+                  },
+                  { text: 'Cancel', style: 'cancel' },
+                ]);
+              }}
+            >
+              <Text style={styles.moreBtn}>⋯</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => navigate('Report', { kind: 'content', targetTitle: 'this answer' })} hitSlop={6}>
+              <Text style={styles.reportBtn}>Report</Text>
+            </Pressable>
+          )}
         </View>
 
         {(ans.replies || []).map((r) => {
@@ -477,8 +503,33 @@ export default function QuestionDetailScreen({ navigation, route }) {
                   />
                 </View>
               ) : null}
-              <View style={{ alignSelf: 'flex-start', marginTop: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: spacing.md }}>
                 <UpvoteButton size="sm" count={r.upvotes} active={hasUpvotedReply(r.id)} onToggle={() => dispatch({ type: 'TOGGLE_UPVOTE_REPLY', replyId: r.id })} />
+                {r.authorId === 'me' ? (
+                  <Pressable
+                    hitSlop={6}
+                    onPress={() => {
+                      Alert.alert('Your reply', '', [
+                        {
+                          text: 'Delete reply',
+                          style: 'destructive',
+                          onPress: () => runAfterAlert(async () => {
+                            try {
+                              const res = await dispatch({ type: 'DELETE_REPLY', questionId, answerId: ans.id, replyId: r.id });
+                              if (res?.ok === false) throw res.error || new Error('Could not delete');
+                              showToast('Reply deleted', { tone: 'success' });
+                            } catch (e) {
+                              Alert.alert('Could not delete', e?.message || 'Try again.');
+                            }
+                          }),
+                        },
+                        { text: 'Cancel', style: 'cancel' },
+                      ]);
+                    }}
+                  >
+                    <Text style={styles.moreBtn}>⋯</Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           );
@@ -791,6 +842,7 @@ const createStyles = (colors, spacing, font, radius, line, shadow) => StyleSheet
   answerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   replyBtn: { color: colors.textMuted, fontWeight: '800', fontSize: font.caption },
   reportBtn: { color: colors.textFaint, fontSize: font.caption, fontWeight: '600' },
+  moreBtn: { color: colors.textMuted, fontSize: font.bodyLg, fontWeight: '700', paddingHorizontal: 2 },
 
   reply: { marginTop: spacing.md, marginLeft: spacing.md, paddingLeft: spacing.md, borderLeftWidth: 2, borderLeftColor: colors.border },
   replyHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },

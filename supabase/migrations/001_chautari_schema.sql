@@ -253,8 +253,6 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expert_applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expert_upvote_bonuses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.checklist_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.checklist_progress ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: world-readable, self-editable
 CREATE POLICY profiles_select ON public.profiles FOR SELECT USING (true);
@@ -312,13 +310,6 @@ CREATE POLICY reports_insert ON public.reports FOR INSERT WITH CHECK (reporter_i
 CREATE POLICY expert_apps_select_own ON public.expert_applications FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY expert_apps_insert ON public.expert_applications FOR INSERT WITH CHECK (user_id = auth.uid());
 
--- Checklist items: public read
-CREATE POLICY checklist_items_select ON public.checklist_items FOR SELECT USING (true);
-
--- Checklist progress: own rows only
-CREATE POLICY checklist_progress_select ON public.checklist_progress FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY checklist_progress_insert ON public.checklist_progress FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY checklist_progress_delete ON public.checklist_progress FOR DELETE USING (user_id = auth.uid());
 
 -- Expert bonuses: readable for karma display
 CREATE POLICY expert_bonuses_select ON public.expert_upvote_bonuses FOR SELECT USING (true);

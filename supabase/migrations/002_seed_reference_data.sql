@@ -29,25 +29,4 @@ INSERT INTO public.circles (id, name, handle, description, icon, accent_id, crea
   ('c_tiny',      'Gundruk Recipe Club',           'gundruk-recipe-club', 'A tiny circle for fermenting, drying and cooking gundruk properly.',    '🌿', 'olive',   NULL, FALSE, 4,   now() - interval '3 days')
 ON CONFLICT (id) DO NOTHING;
 
--- ---------------------------------------------------------------------------
--- Arrival checklist catalog (matches src/data/checklist.js)
--- question_id = intended thread id once Q&A is seeded in Supabase
--- ---------------------------------------------------------------------------
-INSERT INTO public.checklist_items (id, title, explainer, question_id, sort_order) VALUES
-  ('tfn',       'Get a TFN',                          'A Tax File Number lets employers pay you legally and is needed for tax returns. Apply free online via the ATO once you have a valid visa.', 'q_chk_tfn', 1),
-  ('bank',      'Open a bank account',                'You will need ID (passport + visa) and a local address. Most big banks let you start online before you land.', 'q_chk_bank', 2),
-  ('sim',       'Get a local SIM',                    'A prepaid SIM on a major network is the easiest start. You can port your number later.', 'q17', 3),
-  ('myki',      'Set up Myki',                        'Melbourne public transport runs on Myki. Get a card at stations or convenience stores.', 'q_chk_myki', 4),
-  ('health',    'Sort health cover (Medicare or OSHC)','Students and many visa holders need Overseas Student Health Cover.', 'q_chk_health', 5),
-  ('gp',        'Find a GP',                          'A regular GP is your entry point to referrals, mental-health plans, and scripts.', 'q3', 6),
-  ('rent',      'Understand renting',                 'Know your rights on bonds, inspections, and breaking a lease before you sign.', 'q_chk_rent', 7),
-  ('licence',   'Get a Victorian licence',            'If you hold an overseas licence, check conversion rules and the hazard-perception test.', 'q14', 8),
-  ('job',       'Start the job hunt',                 'Tailor your resume for Australian readers, network locally, and use LinkedIn actively.', 'q21', 9),
-  ('emergency', 'Save emergency numbers',             '000 for police/fire/ambulance. 131 114 for Poisons. Save your embassy number too.', 'q_chk_emergency', 10)
-ON CONFLICT (id) DO UPDATE SET
-  title = EXCLUDED.title,
-  explainer = EXCLUDED.explainer,
-  question_id = EXCLUDED.question_id,
-  sort_order = EXCLUDED.sort_order;
-
 SELECT 'Reference data seeded (circles + checklist catalog)' AS status;

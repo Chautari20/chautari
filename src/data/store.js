@@ -519,6 +519,35 @@ function reducer(state, action) {
     case 'DELETE_QUESTION':
       return { ...state, questions: state.questions.filter((q) => q.id !== action.questionId) };
 
+    case 'DELETE_ANSWER':
+      return {
+        ...state,
+        questions: state.questions.map((q) =>
+          q.id !== action.questionId ? q : {
+            ...q,
+            answers: q.answers.filter((a) => !(a.id === action.answerId && a.authorId === 'me')),
+          }
+        ),
+      };
+
+    case 'DELETE_REPLY':
+      return {
+        ...state,
+        questions: state.questions.map((q) =>
+          q.id !== action.questionId ? q : {
+            ...q,
+            answers: q.answers.map((a) =>
+              a.id !== action.answerId ? a : {
+                ...a,
+                replies: (a.replies || []).filter(
+                  (r) => !(r.id === action.replyId && r.authorId === 'me')
+                ),
+              }
+            ),
+          }
+        ),
+      };
+
 
     case 'MARK_NOTIFS_READ':
       return { ...state, notifications: state.notifications.map((n) => ({ ...n, read: true })) };
