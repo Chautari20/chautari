@@ -5,7 +5,7 @@ export const CATEGORIES = [
   { id: 'health', name: 'Health & Medical', icon: '🩺' },
   { id: 'real_estate', name: 'Real Estate', icon: '🏠' },
   { id: 'loans', name: 'Loans & Mortgages', icon: '🏦' },
-  { id: 'it_careers', name: 'IT & Careers', icon: '💻' },
+  { id: 'careers', name: 'Careers', icon: '💼' },
   { id: 'general', name: 'General / Life in Australia', icon: '🌏' },
   { id: 'others', name: 'Others', icon: '📌' },
 ];

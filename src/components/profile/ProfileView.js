@@ -34,7 +34,7 @@ export default function ProfileView({ userId, navigation, actions, showFollowers
         <View style={styles.nameRow}>
           <Text style={styles.name}>{user.name}</Text>
           {user.verified ? <VerifiedBadge /> : null}
-          {user.isFoundingMember ? <FoundingMemberBadge /> : null}
+          {user.isFoundingMember ? <FoundingMemberBadge number={user.foundingMemberNumber} /> : null}
           <KarmaBadge karma={karmaFor(resolvedUserId)} />
         </View>
         {user.profession ? <Text style={styles.profession}>{user.profession}{user.verifiedCategory ? ` · ${categoryName(user.verifiedCategory)}` : ''}</Text> : null}

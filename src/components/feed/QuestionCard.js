@@ -77,6 +77,12 @@ function QuestionCard({
           </Text>
         </Pressable>
         {isExpertPost ? <VerifiedBadge compact /> : null}
+        {a.suburb ? (
+          <>
+            <Text style={styles.metaDot}>·</Text>
+            <Text style={styles.metaSuburb} numberOfLines={1}>{a.suburb}</Text>
+          </>
+        ) : null}
         <Text style={styles.metaDot}>·</Text>
         <Text style={styles.metaTime}>{timeAgo(question.createdAt)}</Text>
       </View>
@@ -108,6 +114,9 @@ function QuestionCard({
         </Text>
         <Text style={styles.footerDot}> · </Text>
         <Text style={styles.footerStat}>{compactNumber(question.upvotes)} upvotes</Text>
+        {question.editedAt ? (
+          <Text style={styles.footerEdited}> · edited</Text>
+        ) : null}
       </Text>
     </Pressable>
   );
@@ -157,6 +166,7 @@ const createStyles = (colors, shadow, spacing, radius, font) => StyleSheet.creat
   authorName: { fontWeight: '700', fontSize: font.caption, color: colors.text, flexShrink: 1 },
   authorNameExpert: { fontWeight: '800', fontSize: font.body },
   metaDot: { color: colors.textFaint, fontSize: font.tiny },
+  metaSuburb: { color: colors.textMuted, fontSize: font.tiny, fontWeight: '600', flexShrink: 1 },
   metaTime: { color: colors.textMuted, fontSize: font.tiny, fontWeight: '600', flexShrink: 0 },
 
   previewRow: {
@@ -204,6 +214,7 @@ const createStyles = (colors, shadow, spacing, radius, font) => StyleSheet.creat
   footerStat: { color: colors.textMuted },
   footerExpert: { color: colors.secondaryDark },
   footerDot: { color: colors.textFaint },
+  footerEdited: { color: colors.textFaint, fontWeight: '600' },
 });
 
 export default React.memo(QuestionCard);

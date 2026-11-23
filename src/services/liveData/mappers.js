@@ -1,4 +1,5 @@
 import { sanitizePhotoUrlsForStorage } from '../../utils/photos';
+import { foundingMemberNumberFromRow } from '../profile';
 
 export function authorToApp(authorId, currentUserId) {
   if (!authorId) return null;
@@ -77,6 +78,7 @@ export function mapProfileRow(row, currentUserId) {
     expertCircleId: row.expert_circle_id || null,
     contact: row.contact || null,
     isFoundingMember: !!row.is_founding_member,
+    foundingMemberNumber: foundingMemberNumberFromRow(row),
     followers: row.followers_count ?? 0,
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   };

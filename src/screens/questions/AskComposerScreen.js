@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Switch, Animated, Easing, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/common/Avatar';
@@ -24,7 +24,7 @@ import {
   hasExpertProfessionalProfile,
 } from '../../utils/expertPost';
 
-const TITLE_MIN = 10, TITLE_MAX = 120, BODY_MIN = 30, BODY_MAX = 4000;
+const TITLE_MIN = 10, TITLE_MAX = 120, BODY_MIN = 10, BODY_MAX = 4000;
 
 export default function AskComposerScreen({ navigation, route }) {
   const { colors, spacing, font, radius, shadow } = useTheme();
@@ -38,7 +38,6 @@ export default function AskComposerScreen({ navigation, route }) {
     expertDailyPostLimit,
     memberPostsToday,
     memberDailyPostLimit,
-    joinedCirclesList,
     state,
     circleById,
     isJoinedCircle,
@@ -47,8 +46,11 @@ export default function AskComposerScreen({ navigation, route }) {
   const { navigate } = useNavigationGuard(navigation);
   const { pickFromLibrary } = useImagePicker();
   const user = me();
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
+  const editQuestionId = route.params?.editQuestionId || null;
+  const isEditMode = !!editQuestionId;
+  const existingQuestion = isEditMode ? state.questions.find((q) => q.id === editQuestionId) : null;
+  const [title, setTitle] = useState(existingQuestion?.title || '');
+  const [body, setBody] = useState(existingQuestion?.body || '');
   const [circleId, setCircleId] = useState(route.params?.circleId || null);
   const [circleQuery, setCircleQuery] = useState('');
   const [photos, setPhotos] = useState([]);
@@ -57,6 +59,10 @@ export default function AskComposerScreen({ navigation, route }) {
   const [postMode, setPostMode] = useState('member');
   const [touched, setTouched] = useState(false);
   const [posting, setPosting] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: isEditMode ? 'Edit question' : 'Post a question' });
+  }, [navigation, isEditMode]);
   const success = useRef(new Animated.Value(0)).current;
   const pendingProfessional = useRef(false);
 
@@ -72,8 +78,8 @@ export default function AskComposerScreen({ navigation, route }) {
   const atProfessionalLimit = user?.verified && !canExpertPostProfessionalToday();
   const atMemberLimit = !canPostMemberToday();
   const atCurrentModeLimit = postedAsExpert ? atProfessionalLimit : atMemberLimit;
-  const circleOk = postedAsExpert ? hasExpertProfessionalProfile(user) : !!circleId;
-  const valid = titleOk && bodyOk && circleOk && !atCurrentModeLimit;
+  const circleOk = isEditMode || (postedAsExpert ? hasExpertProfessionalProfile(user) : !!circleId);
+  const valid = titleOk && bodyOk && circleOk && (isEditMode || !atCurrentModeLimit);
 
   useEffect(() => {
     if (atProfessionalLimit && postMode === 'professional') {
@@ -82,13 +88,12 @@ export default function AskComposerScreen({ navigation, route }) {
   }, [atProfessionalLimit, postMode]);
 
   const circleOptions = useMemo(() => {
-    const joined = joinedCirclesList();
-    const joinedIds = new Set(joined.map((c) => c.id));
-    const rest = state.circles.filter((c) => !joinedIds.has(c.id));
     const q = circleQuery.trim().toLowerCase();
     const filter = (list) => (q ? list.filter((c) => c.name.toLowerCase().includes(q)) : list);
-    return [...filter(joined), ...filter(rest)];
-  }, [joinedCirclesList, state.circles, circleQuery]);
+    const official = filter(state.circles.filter((c) => c.isOfficial));
+    const community = filter(state.circles.filter((c) => !c.isOfficial));
+    return { official, community, isEmpty: official.length === 0 && community.length === 0 };
+  }, [state.circles, circleQuery]);
 
   useFocusEffect(useCallback(() => {
     const u = me();
@@ -217,7 +222,23 @@ export default function AskComposerScreen({ navigation, route }) {
     }
     if (!valid || posting) return;
     if (!online) {
-      Alert.alert('No connection', 'You’re offline. Reconnect to publish your post — your draft stays here.');
+      Alert.alert('No connection', isEditMode
+        ? 'You’re offline. Reconnect to save your edits.'
+        : 'You’re offline. Reconnect to post your question — your draft stays here.');
+      return;
+    }
+
+    // ── Edit mode ─────────────────────────────────────────────────────────────
+    if (isEditMode) {
+      setPosting(true);
+      try {
+        const res = await dispatch({ type: 'EDIT_QUESTION', questionId: editQuestionId, title, body });
+        if (res?.ok === false) throw res.error || new Error('Could not save edits');
+        if (navigation.canGoBack()) navigation.goBack();
+      } catch (e) {
+        setPosting(false);
+        Alert.alert('Could not save', e?.message || 'Check your connection and try again.');
+      }
       return;
     }
     if (photos.some((p) => p.uploading)) return;
@@ -268,10 +289,10 @@ export default function AskComposerScreen({ navigation, route }) {
         footer={(
           <View style={styles.footer}>
             <Button
-              title={atCurrentModeLimit ? 'Daily limit reached' : posting ? 'Posting…' : 'Publish post'}
-              icon="✍️"
+              title={atCurrentModeLimit && !isEditMode ? 'Daily limit reached' : posting ? (isEditMode ? 'Saving…' : 'Posting…') : (isEditMode ? 'Save changes' : 'Post question')}
+              icon={isEditMode ? '✏️' : '✍️'}
               onPress={submit}
-              disabled={atCurrentModeLimit || posting || (touched && !valid)}
+              disabled={(atCurrentModeLimit && !isEditMode) || posting || (touched && !valid)}
             />
           </View>
         )}
@@ -279,11 +300,14 @@ export default function AskComposerScreen({ navigation, route }) {
         <ExpertPostQuota variant="banner" />
 
         <Field
-          label="Title"
+          label={isEditMode ? 'Question title' : 'Your question'}
           error={touched && !titleOk ? `Keep the title between ${TITLE_MIN} and ${TITLE_MAX} characters.` : null}
         >
           <Input placeholder="e.g. Can I apply for a 485 visa before my results are out?" value={title} onChangeText={setTitle} maxLength={TITLE_MAX + 20} />
           <View style={styles.counterRow}><CharCount value={title} min={TITLE_MIN} max={TITLE_MAX} /></View>
+          {title.trim().length > 0 && title.trim().length < TITLE_MIN ? (
+            <Text style={styles.minHint}>{TITLE_MIN - title.trim().length} more character{TITLE_MIN - title.trim().length !== 1 ? 's' : ''} needed</Text>
+          ) : null}
         </Field>
 
         <Field
@@ -292,9 +316,13 @@ export default function AskComposerScreen({ navigation, route }) {
         >
           <Input placeholder="Share the context so people can give you a genuinely useful answer…" value={body} onChangeText={setBody} maxLength={BODY_MAX + 50} multiline />
           <View style={styles.counterRow}><CharCount value={body} min={BODY_MIN} max={BODY_MAX} /></View>
+          {body.trim().length > 0 && body.trim().length < BODY_MIN ? (
+            <Text style={styles.minHint}>{BODY_MIN - body.trim().length} more character{BODY_MIN - body.trim().length !== 1 ? 's' : ''} needed</Text>
+          ) : null}
         </Field>
 
-        {user?.verified ? (
+        {/* Expert mode toggle — hidden in edit mode */}
+        {!isEditMode && user?.verified ? (
           <ExpertPostModeToggle
             mode={postMode}
             onChange={handlePostModeChange}
@@ -313,84 +341,145 @@ export default function AskComposerScreen({ navigation, route }) {
           />
         ) : null}
 
-        {showProConfirm ? (
+        {/* Pro confirm — hidden in edit mode */}
+        {!isEditMode && showProConfirm ? (
           <ExpertProfessionalConfirm circleName={expertCircle?.name} badgeTitle={badgeTitle} />
         ) : null}
 
-        {!postedAsExpert ? (
-          <Field label="Circle" error={touched && !circleId ? 'Pick a circle for your post.' : null}>
+        {/* Circle selector — hidden in edit mode */}
+        {!isEditMode && !postedAsExpert ? (
+          <Field label="Circle" error={touched && !circleId ? 'Pick a circle for your question.' : null}>
+            {/* Search box */}
             <Input
               placeholder="Search circles…"
               value={circleQuery}
               onChangeText={setCircleQuery}
               style={{ marginBottom: spacing.sm }}
             />
-            <View style={styles.chips}>
-              {circleOptions.map((c) => (
-                <Pressable key={c.id} onPress={() => setCircleId(c.id)} style={{ marginBottom: spacing.sm }}>
-                  <CircleChip
-                    circle={c}
-                    compact
-                    showOfficial
+
+            {/* Official circles section */}
+            {circleOptions.official.length > 0 ? (
+              <>
+                <Text style={styles.sectionHeader}>Official</Text>
+                {circleOptions.official.map((c) => (
+                  <Pressable
+                    key={c.id}
                     onPress={() => setCircleId(c.id)}
-                  />
-                  {circleId === c.id ? <Text style={styles.selectedMark}>✓ selected</Text> : null}
-                  {!isJoinedCircle(c.id) ? (
-                    <Text style={styles.joinHint}>Not joined — you can still post here</Text>
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
+                    style={[
+                      styles.circleRow,
+                      circleId === c.id && styles.circleRowSelected,
+                    ]}
+                  >
+                    <CircleChip
+                      circle={c}
+                      compact
+                      showOfficial
+                      onPress={() => setCircleId(c.id)}
+                    />
+                    {circleId === c.id ? (
+                      <Text style={styles.circleCheck}>✓</Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </>
+            ) : null}
+
+            {/* Community circles section */}
+            {circleOptions.community.length > 0 ? (
+              <>
+                <Text style={styles.sectionHeader}>Community circles</Text>
+                {circleOptions.community.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setCircleId(c.id)}
+                    style={[
+                      styles.circleRow,
+                      circleId === c.id && styles.circleRowSelected,
+                    ]}
+                  >
+                    <CircleChip
+                      circle={c}
+                      compact
+                      showOfficial
+                      onPress={() => setCircleId(c.id)}
+                    />
+                    {circleId === c.id ? (
+                      <Text style={styles.circleCheck}>✓</Text>
+                    ) : null}
+                    {!isJoinedCircle(c.id) ? (
+                      <Text style={styles.joinHint}>Not joined — you can still post here</Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </>
+            ) : null}
+
+            {/* Empty state */}
+            {circleOptions.isEmpty ? (
+              <View style={styles.emptyCircles}>
+                <Text style={styles.emptyCirclesText}>No circles match “{circleQuery}”</Text>
+                <Text style={styles.othersHint}>Can’t find your topic? Select Others.</Text>
+              </View>
+            ) : (
+              <Text style={styles.othersHint}>Can’t find your topic? Select Others.</Text>
+            )}
           </Field>
         ) : null}
 
-        <Field label={`Photos · optional · up to ${MAX_QUESTION_PHOTOS}`}>
-          <PhotoStrip
-            photos={photos}
-            maxCount={MAX_QUESTION_PHOTOS}
-            onAdd={() => setPickerOpen(true)}
-            onRemove={removePhoto}
-            onRetry={() => submit()}
-          />
-        </Field>
-
-        <View style={[styles.anonCard, postedAsExpert && styles.anonCardDisabled]}>
-          <View style={styles.anonHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.anonTitle}>Post anonymously</Text>
-              <Text style={styles.anonSub}>
-                {postedAsExpert
-                  ? 'Not available when posting as a professional — your verified identity is shown.'
-                  : 'Your name, photo and suburb stay hidden on this post.'}
-              </Text>
-            </View>
-            <Switch
-              value={anonymous}
-              onValueChange={handleAnonymousChange}
-              disabled={postedAsExpert}
-              trackColor={{ true: colors.primary, false: colors.borderStrong }}
-              thumbColor={colors.onPrimary}
+        {/* Photos — hidden in edit mode */}
+        {!isEditMode ? (
+          <Field label={`Photos · optional · up to ${MAX_QUESTION_PHOTOS}`}>
+            <PhotoStrip
+              photos={photos}
+              maxCount={MAX_QUESTION_PHOTOS}
+              onAdd={() => setPickerOpen(true)}
+              onRemove={removePhoto}
+              onRetry={() => submit()}
             />
-          </View>
+          </Field>
+        ) : null}
 
-          <View style={styles.previewLabelRow}>
-            <Text style={styles.previewLabel}>HOW IT WILL APPEAR</Text>
-          </View>
-          <View style={[styles.previewRow, postedAsExpert && styles.previewRowExpert]}>
-            <Avatar name={previewName} anon={anonymous} size={34} />
-            <View style={{ marginLeft: spacing.sm, flex: 1 }}>
-              <Text style={styles.previewName}>{previewName}</Text>
-              {postedAsExpert && badgeTitle ? (
-                <Text style={styles.previewProfession}>{badgeTitle}</Text>
-              ) : null}
-              <Text style={styles.previewMeta}>
-                {previewSuburb ? `${previewSuburb} · ` : ''}just now{selectedCircle ? ` · ${selectedCircle.name}` : ''}
-              </Text>
+        {/* Anonymous toggle — hidden in edit mode */}
+        {!isEditMode ? (
+          <View style={[styles.anonCard, postedAsExpert && styles.anonCardDisabled]}>
+            <View style={styles.anonHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.anonTitle}>Post anonymously</Text>
+                <Text style={styles.anonSub}>
+                  {postedAsExpert
+                    ? 'Not available when posting as a professional — your verified identity is shown.'
+                    : 'Your name, photo and suburb stay hidden on this question.'}
+                </Text>
+              </View>
+              <Switch
+                value={anonymous}
+                onValueChange={handleAnonymousChange}
+                disabled={postedAsExpert}
+                trackColor={{ true: colors.primary, false: colors.borderStrong }}
+                thumbColor={colors.onPrimary}
+              />
             </View>
-            {postedAsExpert ? <Text style={styles.previewBadge}>✓</Text> : null}
+
+            <View style={styles.previewLabelRow}>
+              <Text style={styles.previewLabel}>HOW IT WILL APPEAR</Text>
+            </View>
+            <View style={[styles.previewRow, postedAsExpert && styles.previewRowExpert]}>
+              <Avatar name={previewName} anon={anonymous} size={34} />
+              <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+                <Text style={styles.previewName}>{previewName}</Text>
+                {postedAsExpert && badgeTitle ? (
+                  <Text style={styles.previewProfession}>{badgeTitle}</Text>
+                ) : null}
+                <Text style={styles.previewMeta}>
+                  {previewSuburb ? `${previewSuburb} · ` : ''}just now{selectedCircle ? ` · ${selectedCircle.name}` : ''}
+                </Text>
+              </View>
+              {postedAsExpert ? <Text style={styles.previewBadge}>✓</Text> : null}
+            </View>
           </View>
-        </View>
+        ) : null}
       </KeyboardScreen>
+
 
       <PhotoSourceSheet
         visible={pickerOpen}
@@ -415,9 +504,54 @@ const createStyles = (colors, spacing, font, radius, shadow) => StyleSheet.creat
   wrap: { flex: 1, backgroundColor: colors.bg },
   body: { padding: spacing.lg, paddingBottom: spacing.xl },
   counterRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
+  minHint: { fontSize: font.tiny, color: colors.warning || '#F59E0B', marginTop: 4, textAlign: 'right', fontWeight: '600' },
   chips: { gap: spacing.xs },
   selectedMark: { fontSize: font.tiny, color: colors.primary, fontWeight: '800', marginTop: 4, marginLeft: 4 },
   joinHint: { fontSize: font.tiny, color: colors.textFaint, marginTop: 2, marginLeft: 4 },
+  sectionHeader: {
+    fontSize: font.tiny,
+    fontWeight: '800',
+    color: colors.textFaint,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  circleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    marginBottom: 2,
+  },
+  circleRowSelected: {
+    backgroundColor: colors.primaryTint,
+  },
+  circleCheck: {
+    fontSize: font.bodyLg,
+    color: colors.primary,
+    fontWeight: '900',
+  },
+  emptyCircles: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  emptyCirclesText: {
+    fontSize: font.caption,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
+  othersHint: {
+    fontSize: font.tiny,
+    color: colors.textFaint,
+    fontWeight: '600',
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
   anonCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadow.card },
   anonCardDisabled: { opacity: 0.92 },
   anonHeader: { flexDirection: 'row', alignItems: 'center' },

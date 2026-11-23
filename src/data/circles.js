@@ -23,13 +23,13 @@ export const CIRCLE_ACCENT_PRESETS = Object.keys(CIRCLE_ACCENT_PALETTE).map((id)
 export const CIRCLE_ICON_PRESETS = ['🛂', '💰', '🩺', '🏠', '🏦', '💻', '🌏', '📌', '⚽', '🎓', '🍲', '🏏', '🌿', '☕', '🎉'];
 
 const OFFICIAL_META = {
-  migration: { name: 'Visa & Migration', handle: 'visa-migration', description: 'Visas, PR pathways, bridging visas and migration agents.' },
+  migration: { name: 'Migration', handle: 'migration', description: 'Visas, PR pathways, bridging visas and migration agents.' },
   tax_super: { name: 'Tax & Super', handle: 'tax-super', description: 'Tax returns, ABN, super and small-business posts.' },
   health: { name: 'Health & Medical', handle: 'health-medical', description: 'GPs, Medicare, mental health and navigating care in Australia.' },
   real_estate: { name: 'Real Estate', handle: 'real-estate', description: 'Renting, buying, auctions and tenant rights in Victoria.' },
   loans: { name: 'Loans & Mortgages', handle: 'loans-mortgages', description: 'Home loans, refinancing and first-home buyer schemes.' },
-  it_careers: { name: 'IT & Careers', handle: 'it-careers', description: 'Jobs, resumes, interviews and breaking into the local market.' },
-  general: { name: 'Life in Australia', handle: 'life-australia', description: 'Settling in, culture, community and everyday life.' },
+  careers: { name: 'Careers', handle: 'careers', description: 'Jobs, resumes, interviews and career growth in Australia.' },
+  general: { name: 'General / Life in Australia', handle: 'life-australia', description: 'Settling in, culture, community and everyday life.' },
   others: { name: 'Others', handle: 'others', description: 'Everything else — post away.' },
 };
 

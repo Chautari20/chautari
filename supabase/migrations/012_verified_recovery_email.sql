@@ -19,21 +19,21 @@ REVOKE SELECT, INSERT, UPDATE ON public.profiles FROM anon, authenticated;
 
 GRANT SELECT (
   id, phone, name, suburb, photo_url, bio, verified, verified_category,
-  profession, contact, is_founding_member, newcomer, newcomer_since,
+  profession, contact, is_founding_member,
   digest_mode, checklist_card_dismissed, followers_count, created_at,
   updated_at, expert_badge_title, expert_circle_id, email_verified_at
 ) ON public.profiles TO anon, authenticated;
 
 GRANT INSERT (
   id, phone, name, suburb, photo_url, bio, verified, verified_category,
-  profession, contact, is_founding_member, newcomer, newcomer_since,
+  profession, contact, is_founding_member,
   digest_mode, checklist_card_dismissed, followers_count, created_at,
   updated_at, expert_badge_title, expert_circle_id
 ) ON public.profiles TO authenticated;
 
 GRANT UPDATE (
   id, phone, name, suburb, photo_url, bio, verified, verified_category,
-  profession, contact, is_founding_member, newcomer, newcomer_since,
+  profession, contact, is_founding_member,
   digest_mode, checklist_card_dismissed, followers_count, created_at,
   updated_at, expert_badge_title, expert_circle_id
 ) ON public.profiles TO authenticated;

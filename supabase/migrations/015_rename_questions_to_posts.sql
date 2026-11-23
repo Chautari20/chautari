@@ -24,7 +24,6 @@ ALTER TABLE public.saved_questions RENAME TO saved_posts;
 ALTER TABLE public.answers         RENAME COLUMN question_id        TO post_id;
 ALTER TABLE public.saved_posts     RENAME COLUMN question_id        TO post_id;
 ALTER TABLE public.notifications   RENAME COLUMN question_id        TO post_id;
-ALTER TABLE public.checklist_items RENAME COLUMN question_id        TO post_id;
 ALTER TABLE public.circles         RENAME COLUMN pinned_question_id TO pinned_post_id;
 
 -- ---------------------------------------------------------------------------

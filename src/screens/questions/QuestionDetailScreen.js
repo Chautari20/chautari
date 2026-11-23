@@ -188,7 +188,11 @@ export default function QuestionDetailScreen({ navigation, route }) {
     }
     if (isMine) {
       options.push({
-        text: 'Delete post',
+        text: 'Edit question',
+        onPress: () => navigate('AskComposer', { editQuestionId: questionId }),
+      });
+      options.push({
+        text: 'Delete question',
         style: 'destructive',
         onPress: () => {
           runAfterAlert(async () => {
@@ -217,20 +221,30 @@ export default function QuestionDetailScreen({ navigation, route }) {
     showToast(wasSaved ? 'Removed from saved' : 'Saved for later', { tone: wasSaved ? 'default' : 'success' });
   }, [dispatch, questionId, showToast, isSaved]);
 
+  const openEditPost = useCallback(() => {
+    if (!isMine || !questionId) return;
+    navigate('AskComposer', { editQuestionId: questionId });
+  }, [isMine, questionId, navigate]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable onPress={toggleSave} hitSlop={10}>
-            <Text style={{ fontSize: 20, color: saved ? colors.primary : colors.textMuted }}>{saved ? '🔖' : '🔖'}</Text>
+            <Text style={{ fontSize: 20, color: saved ? colors.primary : colors.textMuted }}>🔖</Text>
           </Pressable>
-          <Pressable onPress={openMenu} hitSlop={10}>
+          {isMine ? (
+            <Pressable onPress={openEditPost} hitSlop={10} accessibilityLabel="Edit post">
+              <Text style={{ fontSize: 18, color: colors.primary, fontWeight: '800' }}>✏️</Text>
+            </Pressable>
+          ) : null}
+          <Pressable onPress={openMenu} hitSlop={10} accessibilityLabel="More post actions">
             <Text style={{ fontSize: 20, color: colors.textMuted }}>⋯</Text>
           </Pressable>
         </View>
       ),
     });
-  }, [navigation, question, isMine, saved, colors, toggleSave, openMenu]);
+  }, [navigation, question, isMine, saved, colors, toggleSave, openEditPost, openMenu]);
 
   // Split: verified-expert answers pinned to the top, community answers below.
   const { pinned, community } = useMemo(() => {
@@ -430,9 +444,35 @@ export default function QuestionDetailScreen({ navigation, route }) {
           <Pressable onPress={() => openReply(ans.id)} hitSlop={6}>
             <Text style={styles.replyBtn}>↩ Reply</Text>
           </Pressable>
-          <Pressable onPress={() => navigate('Report', { kind: 'content', targetTitle: 'this answer' })} hitSlop={6}>
-            <Text style={styles.reportBtn}>Report</Text>
-          </Pressable>
+          {ans.authorId === 'me' ? (
+            <Pressable
+              hitSlop={6}
+              onPress={() => {
+                Alert.alert('Your answer', '', [
+                  {
+                    text: 'Delete answer',
+                    style: 'destructive',
+                    onPress: () => runAfterAlert(async () => {
+                      try {
+                        const res = await dispatch({ type: 'DELETE_ANSWER', questionId, answerId: ans.id });
+                        if (res?.ok === false) throw res.error || new Error('Could not delete');
+                        showToast('Answer deleted', { tone: 'success' });
+                      } catch (e) {
+                        Alert.alert('Could not delete', e?.message || 'Try again.');
+                      }
+                    }),
+                  },
+                  { text: 'Cancel', style: 'cancel' },
+                ]);
+              }}
+            >
+              <Text style={styles.moreBtn}>⋯</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => navigate('Report', { kind: 'content', targetTitle: 'this answer' })} hitSlop={6}>
+              <Text style={styles.reportBtn}>Report</Text>
+            </Pressable>
+          )}
         </View>
 
         {(ans.replies || []).map((r) => {
@@ -463,8 +503,33 @@ export default function QuestionDetailScreen({ navigation, route }) {
                   />
                 </View>
               ) : null}
-              <View style={{ alignSelf: 'flex-start', marginTop: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: spacing.md }}>
                 <UpvoteButton size="sm" count={r.upvotes} active={hasUpvotedReply(r.id)} onToggle={() => dispatch({ type: 'TOGGLE_UPVOTE_REPLY', replyId: r.id })} />
+                {r.authorId === 'me' ? (
+                  <Pressable
+                    hitSlop={6}
+                    onPress={() => {
+                      Alert.alert('Your reply', '', [
+                        {
+                          text: 'Delete reply',
+                          style: 'destructive',
+                          onPress: () => runAfterAlert(async () => {
+                            try {
+                              const res = await dispatch({ type: 'DELETE_REPLY', questionId, answerId: ans.id, replyId: r.id });
+                              if (res?.ok === false) throw res.error || new Error('Could not delete');
+                              showToast('Reply deleted', { tone: 'success' });
+                            } catch (e) {
+                              Alert.alert('Could not delete', e?.message || 'Try again.');
+                            }
+                          }),
+                        },
+                        { text: 'Cancel', style: 'cancel' },
+                      ]);
+                    }}
+                  >
+                    <Text style={styles.moreBtn}>⋯</Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           );
@@ -640,7 +705,10 @@ export default function QuestionDetailScreen({ navigation, route }) {
                 <Text style={styles.authorName}>{qAuthor.name}</Text>
                 {isExpertPost ? <VerifiedBadge compact /> : null}
               </View>
-              <Text style={styles.metaText}>{qAuthor.suburb ? `${qAuthor.suburb} · ` : ''}{timeAgo(question.createdAt)}</Text>
+              <Text style={styles.metaText}>
+                {qAuthor.suburb ? `${qAuthor.suburb} · ` : ''}{timeAgo(question.createdAt)}
+                {question.editedAt ? <Text style={styles.editedLabel}> · Edited</Text> : null}
+              </Text>
             </View>
           </Pressable>
 
@@ -747,6 +815,7 @@ const createStyles = (colors, spacing, font, radius, line, shadow) => StyleSheet
   authorName: { fontWeight: '800', color: colors.text, fontSize: font.caption },
   metaText: { color: colors.textMuted, fontSize: font.tiny, marginTop: 1, fontWeight: '600' },
   metaTiny: { color: colors.textFaint, fontSize: font.tiny, fontWeight: '600' },
+  editedLabel: { color: colors.textFaint, fontWeight: '600', fontSize: font.tiny },
   qBody: { fontSize: font.bodyLg, color: colors.text, lineHeight: 25, marginTop: spacing.sm },
   link: { color: colors.primary, fontWeight: '700' },
   photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
@@ -773,6 +842,7 @@ const createStyles = (colors, spacing, font, radius, line, shadow) => StyleSheet
   answerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   replyBtn: { color: colors.textMuted, fontWeight: '800', fontSize: font.caption },
   reportBtn: { color: colors.textFaint, fontSize: font.caption, fontWeight: '600' },
+  moreBtn: { color: colors.textMuted, fontSize: font.bodyLg, fontWeight: '700', paddingHorizontal: 2 },
 
   reply: { marginTop: spacing.md, marginLeft: spacing.md, paddingLeft: spacing.md, borderLeftWidth: 2, borderLeftColor: colors.border },
   replyHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -2,11 +2,17 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
 
+function foundingMemberLabel(number) {
+  const n = Number(number);
+  return Number.isInteger(n) && n > 0 ? `Founding member #${n}` : 'Founding member';
+}
+
 // Quiet saffron chip — profiles only. Diyo-style mark from motif language.
-export default function FoundingMemberBadge() {
+export default function FoundingMemberBadge({ number }) {
   const { colors, spacing, font, radius, shadow } = useTheme();
   const styles = useMemo(() => createStyles(colors, spacing, font, radius, shadow), [colors, spacing, font, radius, shadow]);
   const [open, setOpen] = useState(false);
+  const label = foundingMemberLabel(number);
 
   return (
     <>
@@ -15,19 +21,19 @@ export default function FoundingMemberBadge() {
         style={({ pressed }) => [styles.chip, pressed && { opacity: 0.88 }]}
         hitSlop={6}
         accessibilityRole="button"
-        accessibilityLabel="Founding Member"
+        accessibilityLabel={label}
       >
         <View style={styles.mark}>
           <Text style={styles.markIcon}>🪔</Text>
         </View>
-        <Text style={styles.label}>Founding Member</Text>
+        <Text style={styles.label}>{label}</Text>
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.scrim} onPress={() => setOpen(false)}>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.sheetMark}><Text style={styles.sheetMarkIcon}>🪔</Text></View>
-            <Text style={styles.sheetTitle}>Founding Member</Text>
+            <Text style={styles.sheetTitle}>{label}</Text>
             <Text style={styles.sheetBody}>
               One of the first 1,000 members of Chautari. This badge is permanent.
             </Text>

@@ -7,22 +7,6 @@ export default function ChecklistFeedCard({ doneCount, onOpen, onDismiss }) {
   const { colors, spacing, font, radius, shadow } = useTheme();
   const styles = useMemo(() => createStyles(colors, spacing, font, radius, shadow), [colors, spacing, font, radius, shadow]);
 
-  return (
-    <View style={styles.wrap}>
-      <Pressable onPress={onOpen} style={({ pressed }) => [styles.card, pressed && { opacity: 0.95 }]}>
-        <View style={styles.textCol}>
-          <Text style={styles.eyebrow}>NEW ARRIVAL</Text>
-          <Text style={styles.title}>First 30 Days in Australia</Text>
-          <Text style={styles.subtitle}>A practical checklist with answers from the community.</Text>
-          <Text style={styles.progress}>{doneCount} of {CHECKLIST_TOTAL} done</Text>
-        </View>
-        <Text style={styles.emoji}>🛬</Text>
-      </Pressable>
-      <Pressable onPress={onDismiss} style={styles.dismiss} hitSlop={10} accessibilityLabel="Dismiss checklist card">
-        <Text style={styles.dismissIcon}>✕</Text>
-      </Pressable>
-    </View>
-  );
 }
 
 const createStyles = (colors, spacing, font, radius, shadow) => StyleSheet.create({

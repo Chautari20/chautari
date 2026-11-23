@@ -83,7 +83,7 @@ export default function SettingsScreen({ navigation }) {
         <Row label="Log out" icon="🚪" onPress={logout} />
         <Row label="Delete account" icon="🗑️" danger onPress={() => navigation.navigate('DeleteAccount')} last />
       </View>
-
+{/*
       <Text style={styles.section}>Digest</Text>
       <View style={styles.group}>
         {[
@@ -112,7 +112,7 @@ export default function SettingsScreen({ navigation }) {
           </Pressable>
         ))}
       </View>
-
+*/}
       <Text style={styles.section}>Appearance</Text>
       <View style={styles.group}>
         <View style={[styles.row, { borderBottomWidth: 0 }]}>
