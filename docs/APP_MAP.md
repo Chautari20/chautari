@@ -127,7 +127,7 @@ chautari-test/
     │       └── ids.js          UUID checks, makeId()
     ├── lib/supabase.js         Supabase client + isSupabaseConfigured/isAuthDevMode
     ├── theme/                  ThemeContext (light/dark, persisted), palettes.js, tokens.js
-    ├── constants/              media.js (upload limits), newcomer.js (60-day window)
+    ├── constants/              media.js (upload limits)
     └── utils/                  navigation guards, format, karma, color, photos, expertPost, circleDirectory, dispatchGuards
 ```
 
@@ -255,8 +255,8 @@ Navigation helpers: `src/utils/navigation.js` (`useNavigationGuard` debounces do
 | `auth/EmailScreen` / `EmailCodeScreen` | Recovery email + 6-digit code via `email-verification` | `sendVerifyEmail`, `verifyEmailCode`, `lookupAccount` (mock taken-check) | `SET_AUTH_PROFILE` / `LOGOUT` | `ProfileSuburb` or sign-out to Log in |
 | `auth/Recovery*` | Lost-phone flow via `account-recovery` (no JWT) | `startAccountRecovery` … `completeAccountRecovery` | – | back to `PhoneEntry` with new number |
 | `auth/ProfileNameScreen` | Display name | – | – | `Email` |
-| `auth/ProfileSuburbScreen` | Suburb, avatar, "I'm new to Australia" toggle; finishes onboarding (`uploadAvatar`, `completeOnboarding`) | `completeOnboarding`, `uploadAvatar`, `useProfilePhotoFlow` | `SET_AUTH`, `SIGN_UP`, `UPDATE_PROFILE` | `ProfilePhotoPreview`; Root swaps to `Main` |
-| `home/HomeScreen` | For You / Following tabs, Hot/New toggle, live pill, checklist card, FAB composer; tab re-tap scrolls to top + refreshes (lines 118-127) | `useForYouFeed`, `useLiveDataRefresh({onFocus:true})`, `followingFeed`, `newTodayCount`, `suggestedExperts`, `canOpenComposerToday`, `isNewcomerActive` | `DISMISS_CHECKLIST_CARD`, `TOGGLE_UPVOTE_QUESTION` (via card), `TOGGLE_FOLLOW` (via FollowButton) | `AskComposer`, `Search`, `Notifications`, `QuestionDetail`, `CircleDetail`, `ArrivalChecklist`, author profiles |
+| `auth/ProfileSuburbScreen` | Suburb and avatar; finishes onboarding (`uploadAvatar`, `completeOnboarding`) | `completeOnboarding`, `uploadAvatar`, `useProfilePhotoFlow` | `SET_AUTH`, `SIGN_UP`, `UPDATE_PROFILE` | `ProfilePhotoPreview`; Root swaps to `Main` |
+| `home/HomeScreen` | For You / Following tabs, Hot/New toggle, live pill, FAB composer; tab re-tap scrolls to top + refreshes (lines 118-127) | `useForYouFeed`, `useLiveDataRefresh({onFocus:true})`, `followingFeed`, `newTodayCount`, `suggestedExperts`, `canOpenComposerToday` | `TOGGLE_UPVOTE_QUESTION` (via card), `TOGGLE_FOLLOW` (via FollowButton) | `AskComposer`, `Search`, `Notifications`, `QuestionDetail`, `CircleDetail`, author profiles |
 | `home/SearchScreen` | Text + circle/suburb/date filters over `feedQuestions()` | `feedQuestions`, `userById`, `circleById` | – | `QuestionDetail` |
 | `home/NotificationsScreen` | Sectioned activity list; marks read after 900 ms | `state.notifications` | `MARK_NOTIFS_READ` | `QuestionDetail` |
 | `questions/QuestionDetailScreen` | Thread: question, answers, replies; inline answer/reply composers with optional single photo; save, upvote, pin/unpin (creator), delete (owner), report, image viewer; focus refetch | `questionById`, `userById`, `hasUpvoted*`, `isSaved`, `isCircleCreator`, `isQuestionOwner`, `useLiveDataRefresh`, `uploadAnswerPhoto`, `uploadReplyPhoto` | `ADD_ANSWER`, `ADD_REPLY`, `TOGGLE_UPVOTE_QUESTION/ANSWER/REPLY`, `TOGGLE_SAVE_QUESTION`, `PIN_QUESTION_TO_CIRCLE`, `UNPIN_QUESTION_FROM_CIRCLE`, `DELETE_QUESTION` | `Report`, `ImageViewer`, `CircleDetail`, author profiles |
@@ -270,12 +270,12 @@ Navigation helpers: `src/utils/navigation.js` (`useNavigationGuard` debounces do
 | `experts/ExpertProfileScreen` | Expert profile via shared `ProfileView` | `userById`, `questionsByAuthor`, `karmaFor` | `TOGGLE_FOLLOW` (FollowButton) | `QuestionDetail`, `Report` |
 | `experts/VerifiedApplicationScreen` | Badge title, expert circle, optional credential upload; **auto-approved** (`status: 'approved'`, line 79) | `uploadExpertCredential`, `validateExpertBadgeTitle` | `SUBMIT_EXPERT_APPLICATION` | back |
 | `experts/ExpertProfessionalSetupScreen` | Declare badge title + circle for professional posting | `validateExpertBadgeTitle` | `SET_EXPERT_PROFESSIONAL_PROFILE` | back |
-| `profile/MyProfileScreen` | Tab root: avatar, karma, founding badge, options (checklist if newcomer, My Posts, Saved, Become verified) | `me`, `karmaFor`, `checklistDoneCount`, `isNewcomerActive` | – | `Settings`, `EditProfile`, `MyPosts`, `SavedPosts`, `VerifiedApplication`, `ArrivalChecklist` |
+| `profile/MyProfileScreen` | Tab root: avatar, karma, founding badge, options (My Posts, Saved, Become verified) | `me`, `karmaFor`, `checklistDoneCount` | – | `Settings`, `EditProfile`, `MyPosts`, `SavedPosts`, `VerifiedApplication` |
 | `profile/UserProfileScreen` | Other member profile via `ProfileView` | `userById`, `questionsByAuthor` | `TOGGLE_FOLLOW` | `QuestionDetail`, `Report` |
 | `profile/EditProfileScreen` | Name, suburb, bio, avatar | `updateProfile` (Supabase), `uploadAvatar`, `useProfilePhotoFlow` | `UPDATE_PROFILE` | `ProfilePhotoPreview` |
 | `profile/MyPostsScreen` | Own questions | `myQuestions` | – | `QuestionDetail` |
 | `profile/SavedPostsScreen` | Bookmarked questions | `savedQuestionsList` | – | `QuestionDetail` |
-| `checklist/ArrivalChecklistScreen` | 10 newcomer tasks with progress bar and completion animation | `CHECKLIST_ITEMS`, `isChecklistItemDone` | `TOGGLE_CHECKLIST_ITEM` | `QuestionDetail` (deep link per item) |
+| `checklist/ArrivalChecklistScreen` | 10 tasks with progress bar and completion animation | `CHECKLIST_ITEMS`, `isChecklistItemDone` | `TOGGLE_CHECKLIST_ITEM` | `QuestionDetail` (deep link per item) |
 | `settings/SettingsScreen` | Theme toggle, digest, masked recovery email, change phone, sign out | `recoveryEmailStatus`, `useTheme`, `useNetwork`, `signOut` | `SET_DIGEST_MODE`, `LOGOUT` | `ChangePhoneEmailCode`, `Help`, `About`, `Terms`, `Privacy`, `EditProfile`, `CreateCircle`, `DeleteAccount` |
 | `settings/ChangePhone*` | Email code (`change_phone`) → new AU number → `updateUser({ phone })` + `verifyOtp({ type: 'phone_change' })` | `email-verification`, `supabase.auth` | – | `Settings` |
 | `settings/DeleteAccountScreen` | Confirm + wipe local state, Supabase `signOut` | `signOut` | `DELETE_ACCOUNT` | Root swaps to auth group |
@@ -310,8 +310,6 @@ Navigation helpers: `src/utils/navigation.js` (`useNavigationGuard` debounces do
   digestMode: 'daily',        // 'daily' | 'weekly' | 'off'
   checklistDone: [],          // checklist item ids
   checklistCardDismissed: false,
-  newcomer: false,
-  newcomerSince: null,
 }
 ```
 
@@ -331,8 +329,8 @@ Persisted to `chautari.state.v3` on every change after hydration, excluding `boo
 | `SET_AUTH` | `userId` | `authUserId` | – | DataProvider, OtpScreen, ProfileSuburbScreen |
 | `CLEAR_AUTH` | – | `authUserId: null` | – | DataProvider on `SIGNED_OUT` |
 | `CLEAR_LOCAL_SESSION` | – | `currentUserId: null` | – | DataProvider |
-| `RESTORE_SESSION` | `userId`, `profile` row | Build `me` from row; keep existing following/notifications (or `[]`); official joined fallback; newcomer/digest/checklist meta | – | DataProvider, OtpScreen |
-| `SIGN_UP` | `name`, `newcomer`, `authUserId` | Create `me` (followers 0, founding member), official joined circles only | – (profile written by `completeOnboarding`) | ProfileSuburbScreen |
+| `RESTORE_SESSION` | `userId`, `profile` row | Build `me` from row; keep existing following/notifications (or `[]`); official joined fallback; digest/checklist meta | – | DataProvider, OtpScreen |
+| `SIGN_UP` | `name`, `authUserId` | Create `me` (followers 0, founding member), official joined circles only | – (profile written by `completeOnboarding`) | ProfileSuburbScreen |
 | `UPDATE_PROFILE` | `patch` | Patch `me`; sanitize photo (282-291) | – (EditProfile calls `updateProfile()` directly) | ProfileSuburbScreen, EditProfileScreen |
 | `LOGOUT` | – | `currentUserId: null`, `authUserId: null` | – | SettingsScreen |
 | `DELETE_ACCOUNT` | – | `buildInitialState()` (full wipe) | – | DeleteAccountScreen |
@@ -364,7 +362,7 @@ All 34 action types are dispatched somewhere; there are **no dead action types**
 
 ### Selectors (`useSelectors()`, `store.js:885-1113`)
 
-Identity/users: `state`, `userById`, `me`, `isFollowing`, `experts`, `karmaFor`, `isQuestionOwner`, `isNewcomerActive`.
+Identity/users: `state`, `userById`, `me`, `isFollowing`, `experts`, `karmaFor`, `isQuestionOwner`.
 Questions: `questionById`, `answerCount`, `feedQuestions`, `forYouFeed` (legacy, **unused**: Home uses `useForYouFeed`), `followingFeed`, `myQuestions`, `questionsByAuthor`, `expertAuthoredQuestions`, `savedQuestionsList`, `expertAnswerOn`, `hasExpertAnswer`, `newTodayCount`, `suggestedExperts`.
 Votes/saves: `hasUpvotedQuestion`, `hasUpvotedAnswer`, `hasUpvotedReply`, `isSaved`.
 Posting quotas: `expertProfessionalPostsToday/Remaining`, `canExpertPostProfessionalToday`, `memberPostsToday/Remaining`, `canPostMemberToday`, `canOpenComposerToday`, legacy aliases `expertPostsToday`, `expertPostsRemaining`, `canExpertPostToday`, constants `expertDailyPostLimit`, `memberDailyPostLimit`.
@@ -487,7 +485,7 @@ Entry: `screens/home/HomeScreen.js:55` → `hooks/useForYouFeed.js` → `feed/fe
 3. **Hot score** (`rankingConfig.js:33-50`): `engagement / (hours + 2) ** 1.5` where `engagement = 1 + upvotes + 2·answers + 8·hasExpertAnswer`.
 4. **Merge** 4 joined : 1 discovery, then backfill joined; discovery capped by the pattern (`mergeSortedPools`, 52-73). `JOINED_SLOTS_PER_DISCOVERY = round(0.8/0.2) = 4`.
 5. **Snapshot + paging** (`useForYouFeed.js`): `referenceTime` is captured once per snapshot; `snapshotGen` bumps on refresh, on switching to Hot, and whenever the posts fingerprint (`id:createdAt:answerCount`) changes. Visible window grows by `PAGE_SIZE = 10` via `loadMore`. Switching to New keeps the reference time.
-6. **Home decorations** (`HomeScreen.js`): `CirclesRecommendRow` inserted after index 4 when > 5 items; "N new today" pill from `newTodayCount` (24 h); `ChecklistFeedCard` when `isNewcomerActive()` and not dismissed; four `QuestionCardSkeleton`s while the local `loading` flag is true (`HomeScreen.js:45, 63-71, 207-210` — cleared 500 ms after the first `requestIdleCallback`).
+6. **Home decorations** (`HomeScreen.js`): `CirclesRecommendRow` inserted after index 4 when > 5 items; "N new today" pill from `newTodayCount` (24 h); four `QuestionCardSkeleton`s while the local `loading` flag is true (`HomeScreen.js:45, 63-71, 207-210` — cleared 500 ms after the first `requestIdleCallback`).
 
 Following tab: `followingFeed()` = posts authored or answered by followed users, newest first (`store.js:1032-1038`). Circle feeds: `questionsInCircle` newest first excluding the pinned post (`store.js:964-970`).
 
@@ -503,7 +501,7 @@ Following tab: `followingFeed()` = posts authored or answered by followed users,
 | `utils/phone.js` | `normalizeAuPhone`, `isAuMobile`, `auNationalDigits` | The only client phone normaliser. `04…`, `+61 4…`, `61 4…`, `4…` → `+614XXXXXXXX`; anything else → `null`. Mirrors `_shared/phone.ts` and SQL `normalize_au_phone()` (015). |
 | `services/authSession.js` | `finishAuthNavigation` | `SET_AUTH_PROFILE` then home (`RESTORE_SESSION`) or first incomplete onboarding route. |
 | `services/emailRecovery.js` | verify / recovery / `lookupAccount` / `sendEmailLogin` / `verifyEmailLoginCode` | Invokes edge functions; friendly `error` plus `__DEV__` `devDetail`. |
-| `services/profile.js` | `ensureProfilePhone`, `profileRowToUser`, `profileMetaFromRow`, `fetchProfile`, `updateProfile`, `completeOnboarding` | `completeOnboarding` requires an existing session (never creates an auth user) then updates `profiles` (name, suburb, photo_url, newcomer, is_founding_member = true, phone normalised). |
+| `services/profile.js` | `ensureProfilePhone`, `profileRowToUser`, `profileMetaFromRow`, `fetchProfile`, `updateProfile`, `completeOnboarding` | `completeOnboarding` requires an existing session (never creates an auth user) then updates `profiles` (name, suburb, photo_url, is_founding_member = true, phone normalised). |
 | `services/mediaStorage.js` | `stagePickerAssetToFile`, `getMediaPublicUrl`, `prepareImageForUpload`, `uploadMediaFile`, `uploadImageAsset`, `uploadPreparedImage`, `uploadAvatar`, `uploadQuestionPhotos`, `uploadCircleImage`, `uploadAnswerPhoto`, `uploadReplyPhoto`, `uploadExpertCredential` | Pipeline: stage → resize ≤ 1920 px, JPEG q0.82 → base64 → ArrayBuffer → `storage.from('media').upload(<prefix>/<uid>/<file>)`. Prefixes in `constants/media.js:MEDIA_PATH_PREFIX`. Requires signed-in user (RLS). |
 | `services/digest.js` | `ensureNotificationPermissions`, `composeDigestSummary`, `cancelDigestSchedule`, `scheduleDigest`, `addDigestInAppNotification`, `runDigestPreview` | Local `expo-notifications` only. Daily 18:00 or weekly Monday 18:00 (`weekday: 2`), identifier `chautari-daily-digest`. Tapping routes to Circles tab (`components/common/DigestManager.js`). |
 | `services/liveData/fetch.js` | `fetchLiveBundle` | 7 parallel queries: `posts(*, answers(*, replies(*)))`, non-official `circles`, my `upvotes`, `saved_posts`, `follows`, `circle_members`, `checklist_progress`; then `profiles in (…uuids)`. Non-UUID ids filtered. |
@@ -573,7 +571,7 @@ Following tab: `followingFeed()` = posts authored or answered by followed users,
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `profiles` | `id UUID PK → auth.users`, `phone`, `email`, `email_verified_at`, `name`, `suburb`, `photo_url`, `bio`, `verified`, `verified_category`, `profession`, `contact`, `is_founding_member`, `newcomer`, `newcomer_since`, `digest_mode` (enum daily/weekly/off), `checklist_card_dismissed`, `followers_count`, `expert_badge_title`, `expert_circle_id`, timestamps | Auto-created by trigger. Clients cannot write `email` / `email_verified_at`. Raw `email` is not selectable by anon/authenticated. |
+| `profiles` | `id UUID PK → auth.users`, `phone`, `email`, `email_verified_at`, `name`, `suburb`, `photo_url`, `bio`, `verified`, `verified_category`, `profession`, `contact`, `is_founding_member`, `digest_mode` (enum daily/weekly/off), `checklist_card_dismissed`, `followers_count`, `expert_badge_title`, `expert_circle_id`, timestamps | Auto-created by trigger. Clients cannot write `email` / `email_verified_at`. Raw `email` is not selectable by anon/authenticated. |
 | `email_codes` | `id`, `user_id`, `email`, `purpose` (verify_email/recovery/change_phone/login), `code_hash`, `expires_at`, `attempts`, `consumed_at` | RLS on, no policies — service_role only |
 | `auth_checks` | `id`, `ip`, `created_at` | RLS on, no policies — service_role only. 10 / IP / minute for `account-lookup` and `dev-login` |
 | `recovery_sessions` | `id`, `user_id`, `token_hash`, `expires_at`, `consumed_at`, `new_phone` | RLS on, no policies — service_role only |
@@ -624,7 +622,6 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 | Karma = 10 × answer upvotes + 2 × post upvotes + 1 × reply upvotes + 25 × expert-upvote bonuses | `utils/karma.js:3-25` |
 | When a verified user upvotes someone else's answer, that author gets +1 expert bonus (reverted on un-upvote) | `store.js:507-512` |
 | Milestone notification when an upvoted answer crosses 5/10/20/50/100/200/500 | `utils/format.js:55-67`, `store.js:491-503` |
-| Newcomer features (checklist card, profile entry) active for **60 days** after opting in | `constants/newcomer.js:2`, `store.js:1093-1096` |
 | Expert application is auto-approved in the prototype | `screens/experts/VerifiedApplicationScreen.js:79`, `store.js:586-600` |
 | Hot ranking: gravity 1.5, age offset 2 h, weights base 1 / upvote 1 / answer 2 / expert answer 8; discovery needs score ≥ 2.0; 80/20 blend; page size 10 | `src/feed/rankingConfig.js:3-23` |
 | Live refetch on focus at most every 45 s | `hooks/useLiveDataRefresh.js:5` |
@@ -650,7 +647,7 @@ Bucket `media` (public read). Object path must be `<prefix>/<auth.uid()>/<file>`
 | Phone OTP sign-in | Login vs register. Mock only when `EXPO_PUBLIC_AUTH_DEV_MODE=true` in `__DEV__`. Real SMS when that flag is off and Phone provider is configured | `services/auth.js`, `PhoneEntryScreen`, `PhoneRegisterScreen` |
 | Email login | Code to a verified recovery email via `email-login` + `verifyOtp` (`token_hash`) | `EmailLoginScreen`, `supabase/functions/email-login` |
 | Recovery email | Onboarding step + lost-number recovery + Settings change-phone + email login | `supabase/functions/` |
-| Profile sync (name, suburb, avatar, bio, newcomer, digest, checklist dismissed) | Working when configured | `services/profile.js`, `persist.js` |
+| Profile sync (name, suburb, avatar, bio, digest, checklist dismissed) | Working when configured | `services/profile.js`, `persist.js` |
 | Ask / answer / reply with photos | Working; synced when Supabase is configured | §6 |
 | Upvotes, saves, follows, joins | Working; optimistic with server toggle | `persist.js` |
 | For You feed (Hot/New, 80/20) | Working, client-side over live posts | §7 |

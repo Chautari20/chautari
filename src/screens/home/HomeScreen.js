@@ -5,7 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ShinyWordmark from '../../components/common/ShinyWordmark';
 import QuestionFeedList from '../../components/feed/QuestionFeedList';
 import CirclesRecommendRow from '../../components/feed/CirclesRecommendRow';
-import ChecklistFeedCard from '../../components/feed/ChecklistFeedCard';
 import FeedSortToggle from '../../components/feed/FeedSortToggle';
 import Avatar from '../../components/common/Avatar';
 import VerifiedBadge from '../../components/common/VerifiedBadge';
@@ -32,7 +31,7 @@ export default function HomeScreen({ navigation }) {
     canExpertPostProfessionalToday, canPostMemberToday,
     expertProfessionalPostsToday, expertDailyPostLimit,
     memberPostsToday, memberDailyPostLimit,
-    checklistDoneCount, isNewcomerActive, unreadNotifs, state,
+    checklistDoneCount, unreadNotifs, state,
   } = useSelectors();
   const { dispatch } = useData();
   const { online } = useNetwork();
@@ -136,7 +135,6 @@ export default function HomeScreen({ navigation }) {
     setReplayKey((k) => k + 1);
   }, [forYou]);
 
-  const showChecklistCard = tab === 'foryou' && isNewcomerActive() && !state.checklistCardDismissed;
   const unread = unreadNotifs();
 
   const header = (
@@ -165,13 +163,6 @@ export default function HomeScreen({ navigation }) {
       )}
       {tab === 'foryou' ? (
         <FeedSortToggle mode={forYou.sortMode} onChange={onSortChange} />
-      ) : null}
-      {showChecklistCard ? (
-        <ChecklistFeedCard
-          doneCount={checklistDoneCount()}
-          onOpen={() => navigate('ArrivalChecklist')}
-          onDismiss={() => dispatch({ type: 'DISMISS_CHECKLIST_CARD' })}
-        />
       ) : null}
     </View>
   );

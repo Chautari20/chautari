@@ -12,7 +12,6 @@ import ExpertPostQuota from '../../components/question/ExpertPostQuota';
 import KarmaBadge from '../../components/common/KarmaBadge';
 import { compactNumber } from '../../utils/format';
 import FoundingMemberBadge from '../../components/common/FoundingMemberBadge';
-import { CHECKLIST_TOTAL } from '../../data/checklist';
 
 function formatJoined(ts) {
   if (!ts) return 'Recently';
@@ -21,7 +20,7 @@ function formatJoined(ts) {
 }
 
 export default function MyProfileScreen({ navigation }) {
-  const { me, state, karmaFor, checklistDoneCount, isNewcomerActive } = useSelectors();
+  const { me, state, karmaFor } = useSelectors();
   useLiveDataRefresh({ onFocus: true });
   const user = me();
   const { colors, shadow, spacing, font, radius } = useTheme();
@@ -30,16 +29,7 @@ export default function MyProfileScreen({ navigation }) {
 
   const followingCount = state.following.length;
 
-  const checklistProgress = `${checklistDoneCount()} of ${CHECKLIST_TOTAL} done`;
-
   const options = [
-    ...(isNewcomerActive() ? [{
-      key: 'checklist',
-      label: 'First 30 Days checklist',
-      sublabel: checklistProgress,
-      icon: '🛬',
-      onPress: () => navigate('ArrivalChecklist'),
-    }] : []),
     { key: 'posts', label: 'My Posts', icon: '📝', onPress: () => navigate('MyPosts') },
     { key: 'saved', label: 'Saved Posts', icon: '🔖', onPress: () => navigate('SavedPosts') },
   ];

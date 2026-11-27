@@ -148,7 +148,7 @@ Statuses: **Built** / **Partial** / **Not started** / **Mocked**.
 
 | Item | Status | Evidence |
 |---|---|---|
-| First 30 Days | **Partial** | 10 tasks in `src/data/checklist.js`; `questionId` is **null** (links not live). Newcomer window 60 days (`constants/newcomer.js`). Progress synced (`checklist_progress`). Team-editable links without app update: **Not started** (catalog is bundled; `checklist_items.post_id` exists in DB but app reads the JS file). |
+| First 30 Days | **Partial** | 10 tasks in `src/data/checklist.js`; `questionId` is **null** (links not live). Progress synced (`checklist_progress`). Team-editable links without app update: **Not started** (catalog is bundled; `checklist_items.post_id` exists in DB but app reads the JS file). |
 | Search + feeds | **Built**, **computed in app** | Search: `SearchScreen.js` over loaded posts. Date chips: 24h / 7d / 30d — **not** PRD “this month / last 3 months / this year”. For You: `src/feed/*` + `useForYouFeed.js`. Following: `store.js` `followingFeed`. |
 | In-app notifications | **Partial** | Screen exists; only milestones + digest are written (`digest.js` `ADD_NOTIFICATION`). No write on new answer / expert answer / reply / application decision. DB `notifications` unused by app (`APP_MAP.md` §11). |
 | Push | **Mocked / local only** | `expo-notifications` **scheduled local digest** (`services/digest.js`). No `getExpoPushToken`, no push function. |

@@ -11,13 +11,17 @@ async function invoke(action, body = {}) {
   });
 
   if (error) {
-    // FunctionsHttpError carries the response body in error.context
+    // FunctionsHttpError carries the real HTTP response in error.context.
     let detail = error.message || 'Edge Function error';
     try {
       const ctx = error.context;
-      if (ctx && typeof ctx.json === 'function') {
-        const json = await ctx.json();
-        detail = json?.error || json?.message || detail;
+      if (ctx) {
+        const status = ctx.status ? ` (HTTP ${ctx.status})` : '';
+        if (typeof ctx.json === 'function') {
+          const json = await ctx.json();
+          detail = json?.error || json?.message || detail;
+        }
+        detail += status;
       }
     } catch (_) { /* ignore */ }
     throw new Error(detail);

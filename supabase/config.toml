@@ -1,5 +1,8 @@
 # Hosted project ref — same as the public URL host, not a secret.
-project_id = "hlrvifbztfizncodlrru"
+project_id = "ebrxozbrlwteqgeyhmoj"
+
+[functions.admin-users]
+verify_jwt = true
 
 [functions.email-verification]
 verify_jwt = true

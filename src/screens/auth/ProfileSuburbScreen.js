@@ -24,7 +24,6 @@ export default function ProfileSuburbScreen({ navigation, route }) {
   const name = route.params?.name || state.authProfileName || 'You';
   const [suburb, setSuburb] = useState(null);
   const [photo, setPhoto] = useState(null);
-  const [newcomer, setNewcomer] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,12 +61,11 @@ export default function ProfileSuburbScreen({ navigation, route }) {
           name,
           suburb,
           photo: photoUrlValue,
-          newcomer,
           phone: route.params?.phoneE164 || route.params?.phone,
         });
         if (authUserId) dispatch({ type: 'SET_AUTH', userId: authUserId });
       }
-      dispatch({ type: 'SIGN_UP', name, newcomer, authUserId });
+      dispatch({ type: 'SIGN_UP', name, authUserId });
       if (suburb || photoUrlValue) dispatch({ type: 'UPDATE_PROFILE', patch: { suburb, photo: photoUrlValue } });
     } catch (e) {
       setError(e?.message || 'Could not save profile. Try again.');
@@ -81,18 +79,6 @@ export default function ProfileSuburbScreen({ navigation, route }) {
         contentStyle={styles.body}
         footer={(
           <View style={styles.footer}>
-            <View style={styles.newcomerRow}>
-              <View style={styles.newcomerCopy}>
-                <Text style={styles.newcomerLabel}>I'm new to Australia</Text>
-                <Text style={styles.newcomerHint}>Select to unlock features made for newcomers.</Text>
-              </View>
-              <Switch
-                value={newcomer}
-                onValueChange={setNewcomer}
-                trackColor={{ true: colors.primary, false: colors.borderStrong }}
-                thumbColor={colors.onPrimary}
-              />
-            </View>
             {error ? <Text style={styles.err}>{error}</Text> : null}
             <Button title={saving ? 'Saving…' : 'Finish'} onPress={finish} disabled={saving} />
             <Button title="Skip for now" variant="ghost" onPress={finish} disabled={saving} style={{ marginTop: 4 }} />
@@ -140,21 +126,5 @@ const createStyles = (colors, spacing, font, radius) => StyleSheet.create({
   label: { fontSize: font.small, fontWeight: '700', color: colors.text, marginBottom: spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   footer: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
-  newcomerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    marginBottom: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.bgSunken,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  newcomerCopy: { flex: 1 },
-  newcomerLabel: { fontSize: font.caption, fontWeight: '800', color: colors.text },
-  newcomerHint: { fontSize: font.tiny, color: colors.textMuted, marginTop: 2, lineHeight: 16 },
   err: { color: colors.danger, fontSize: font.small, fontWeight: '600', marginBottom: spacing.sm, textAlign: 'center' },
 });

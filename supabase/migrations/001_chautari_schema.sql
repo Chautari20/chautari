@@ -33,8 +33,6 @@ CREATE TABLE public.profiles (
   profession      TEXT,
   contact         TEXT,
   is_founding_member BOOLEAN NOT NULL DEFAULT FALSE,
-  newcomer        BOOLEAN NOT NULL DEFAULT FALSE,
-  newcomer_since  TIMESTAMPTZ,
   digest_mode     public.digest_mode NOT NULL DEFAULT 'daily',
   checklist_card_dismissed BOOLEAN NOT NULL DEFAULT FALSE,
   followers_count INTEGER NOT NULL DEFAULT 0 CHECK (followers_count >= 0),
@@ -217,7 +215,7 @@ CREATE TABLE public.expert_upvote_bonuses (
 );
 
 -- ---------------------------------------------------------------------------
--- Newcomer checklist
+-- Arrival checklist
 -- ---------------------------------------------------------------------------
 CREATE TABLE public.checklist_items (
   id          TEXT PRIMARY KEY,

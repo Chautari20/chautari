@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
         .from('profiles')
         .select(
           'id, name, phone, email, suburb, photo_url, bio, verified, ' +
-          'is_founding_member, newcomer, followers_count, created_at, updated_at',
+          'is_founding_member, followers_count, created_at, updated_at',
           { count: 'exact' },
         )
         .order('created_at', { ascending: false })
