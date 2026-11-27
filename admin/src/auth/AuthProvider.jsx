@@ -4,35 +4,28 @@ import { supabase } from '../supabase';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser]       = useState(null);
+  const [loading, setLoading] = useState(true); // true while session is being restored
 
   useEffect(() => {
-    // Get current user (if already logged in)
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    // Restore existing session on page load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Keep user in sync with Supabase auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
-  const loginWithMagicLink = async (email) => {
-    const { data, error } = await supabase.functions.invoke('email-login', {
-      body: { action: 'send', email },
-    });
+  const login = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
-  };
-
-  const verifyMagicLink = async (email, code) => {
-    const { data, error } = await supabase.functions.invoke('email-login', {
-      body: { action: 'verify', email, code },
-    });
-    if (error) throw error;
-    const { token_hash, type } = data;
-    const { error: verifyError } = await supabase.auth.verifyOtp({ token_hash, type });
-    if (verifyError) throw verifyError;
-    // onAuthStateChange will update `user`
-    return supabase.auth.getUser();
   };
 
   const logout = async () => {
@@ -41,7 +34,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginWithMagicLink, verifyMagicLink, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
