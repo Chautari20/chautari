@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './App.css';
 import { useAuth } from './auth/AuthProvider';
 import UsersPage from './pages/UsersPage';
+import PostsPage from './pages/PostsPage';
 
 /* ─── Login page ──────────────────────────────────────────────── */
 function LoginPage() {
@@ -160,6 +161,17 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    id: 'posts',
+    label: 'Posts',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M3 3h18v18H3V3z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M3 7h18M3 11h18M3 15h18" stroke="currentColor" strokeWidth="1.8"
+          strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 /* ─── Dashboard shell ─────────────────────────────────────────── */
@@ -236,6 +248,7 @@ function Dashboard() {
         {/* Page content */}
         <main className="dash-content">
           {activePage === 'users' && <UsersPage />}
+          {activePage === 'posts' && <PostsPage />}
         </main>
       </div>
     </div>

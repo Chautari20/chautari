@@ -887,3 +887,73 @@
   color: #fbbf24;
 }
 
+/* ── Posts page ── */
+.post-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.filter-select {
+  height: 38px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  background: #201e33;
+  color: rgba(255,255,255,0.75);
+  padding: 0 30px 0 12px;
+  outline: none;
+}
+.create-btn {
+  height: 38px;
+  border: none;
+  border-radius: 10px;
+  background: #7c3aed;
+  color: #fff;
+  font-weight: 700;
+  padding: 0 14px;
+  cursor: pointer;
+}
+.post-table { table-layout: fixed; }
+.post-main { min-width: 260px; }
+.post-main strong { display: block; color: #fff; margin-bottom: 5px; }
+.post-main span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: rgba(255,255,255,0.42);
+  line-height: 1.45;
+}
+.post-expert { display: block; color: #818cf8; margin-top: 5px; font-size: 11px; }
+.post-meta { color: rgba(255,255,255,0.42); font-size: 12px; }
+.post-action {
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.65);
+  padding: 7px 9px;
+  margin-left: 5px;
+  cursor: pointer;
+}
+.post-action:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.post-delete:hover { background: rgba(248,113,113,0.12); color: #f87171; }
+.post-modal { max-width: 560px; }
+.post-field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; color: rgba(255,255,255,0.62); font-size: 13px; }
+.post-field input, .post-field textarea, .post-field select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 9px;
+  background: rgba(255,255,255,0.05);
+  color: #fff;
+  padding: 10px 12px;
+  font-family: inherit;
+  resize: vertical;
+}
+.post-field select option { background: #1a1830; }
+.post-checks { display: flex; gap: 18px; margin: 4px 0 16px; color: rgba(255,255,255,0.65); font-size: 13px; }
+.post-checks label { display: flex; align-items: center; gap: 7px; }
+
+/* Toast */
+

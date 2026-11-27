@@ -10,6 +10,11 @@
  *   { action: 'ban',     userId }
  *   { action: 'restore', userId }
  *   { action: 'delete',  userId }
+ *   { action: 'list-posts', page, pageSize, search, circleId, authorId, expert }
+ *   { action: 'list-post-circles' }
+ *   { action: 'create-post', authorId, circleId, title, body, anonymous, photos, postedAsExpert, professionLabel }
+ *   { action: 'update-post', postId, circleId, title, body, anonymous, photos, postedAsExpert, professionLabel }
+ *   { action: 'delete-post', postId }
  */
 import { fail, failLogged, MSG, ok, preflight, corsHeaders } from '../_shared/http.ts';
 import { serviceClient } from '../_shared/db.ts';
@@ -140,6 +145,148 @@ Deno.serve(async (req) => {
       const { userId } = body;
       if (!userId) return fail('userId required');
       await updateAuthUser(userId, { ban_duration: '876600h' }); // ~100 years
+      return ok({});
+    }
+
+    // ── restore ───────────────────────────────────────────────────────────
+    if (action === 'restore') {
+      const { userId } = body;
+      if (!userId) return fail('userId required');
+      await updateAuthUser(userId, { ban_duration: 'none' });
+      return ok({});
+    }
+
+    // ── delete ────────────────────────────────────────────────────────────
+    if (action === 'delete') {
+      const { userId } = body;
+      if (!userId) return fail('userId required');
+      await deleteAuthUser(userId);
+      return ok({});
+    }
+
+    // ── posts list ────────────────────────────────────────────────────────
+    if (action === 'list-posts') {
+      const page = Math.max(1, Number(body.page) || 1);
+      const pageSize = Math.min(100, Math.max(1, Number(body.pageSize) || 20));
+      const search = String(body.search || '').trim();
+      const circleId = String(body.circleId || '').trim();
+      const authorId = String(body.authorId || '').trim();
+      const expert = String(body.expert || '').trim();
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let q = db
+        .from('posts')
+        .select(
+          'id, circle_id, author_id, anonymous, title, body, photos, upvotes, views, ' +
+          'posted_as_expert, profession_label, created_at, updated_at, ' +
+          'profiles(name, email, suburb, photo_url), circles!posts_circle_id_fkey(name, handle)',
+          { count: 'exact' },
+        )
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (search) {
+        const s = search.replace(/'/g, "''");
+        q = q.or(`title.ilike.%${s}%,body.ilike.%${s}%`);
+      }
+      if (circleId && circleId !== 'all') q = q.eq('circle_id', circleId);
+      if (authorId) q = q.eq('author_id', authorId);
+      if (expert === 'expert') q = q.eq('posted_as_expert', true);
+      if (expert === 'member') q = q.or('posted_as_expert.is.null,posted_as_expert.eq.false');
+
+      const { data, count, error } = await q;
+      if (error) return failLogged('admin-users.list-posts.query', error);
+
+      return ok({ posts: data ?? [], total: count ?? 0, page, pageSize });
+    }
+
+    // ── posts circles ─────────────────────────────────────────────────────
+    if (action === 'list-post-circles') {
+      const { data, error } = await db
+        .from('circles')
+        .select('id, name, handle')
+        .order('name', { ascending: true });
+      if (error) return failLogged('admin-users.list-post-circles.query', error);
+      return ok({ circles: data ?? [] });
+    }
+
+    // ── create post ───────────────────────────────────────────────────────
+    if (action === 'create-post') {
+      const { authorId, circleId, title, body: postBody, anonymous, photos, postedAsExpert, professionLabel } = body;
+      if (!authorId || !circleId || !title || !postBody) return fail('authorId, circleId, title and body are required');
+
+      const { data, error } = await db
+        .from('posts')
+        .insert({
+          id: crypto.randomUUID(),
+          author_id: authorId,
+          circle_id: circleId,
+          title,
+          body: postBody,
+          anonymous: !!anonymous,
+          photos: Array.isArray(photos) ? photos : [],
+          posted_as_expert: !!postedAsExpert,
+          profession_label: postedAsExpert ? String(professionLabel || '').trim() || null : null,
+        })
+        .select()
+        .single();
+      if (error) return failLogged('admin-users.create-post.insert', error);
+      return ok({ post: data });
+    }
+
+    // ── update post ───────────────────────────────────────────────────────
+    if (action === 'update-post') {
+      const { postId } = body;
+      if (!postId) return fail('postId required');
+
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (body.circleId !== undefined) patch.circle_id = body.circleId;
+      if (body.title !== undefined) patch.title = body.title;
+      if (body.body !== undefined) patch.body = body.body;
+      if (body.anonymous !== undefined) patch.anonymous = !!body.anonymous;
+      if (body.photos !== undefined) patch.photos = Array.isArray(body.photos) ? body.photos : [];
+      if (body.postedAsExpert !== undefined) {
+        patch.posted_as_expert = !!body.postedAsExpert;
+        patch.profession_label = body.postedAsExpert
+          ? String(body.professionLabel || '').trim() || null
+          : null;
+      }
+
+      const { data, error } = await db
+        .from('posts')
+        .update(patch)
+        .eq('id', postId)
+        .select()
+        .single();
+      if (error) return failLogged('admin-users.update-post.update', error);
+      return ok({ post: data });
+    }
+
+    // ── delete post ───────────────────────────────────────────────────────
+    if (action === 'delete-post') {
+      const postId = body.postId;
+      if (!postId) return fail('postId required');
+      const { error } = await db.from('posts').delete().eq('id', postId);
+      if (error) return failLogged('admin-users.delete-post.delete', error);
+      return ok({});
+    }
+
+    // ── suspend ───────────────────────────────────────────────────────────
+    if (action === 'suspend') {
+      const { userId, hours } = body;
+      if (!userId) return fail('userId required');
+      const h = Math.max(1, Number(hours) || 24);
+      await updateAuthUser(userId, { ban_duration: `${h}h` });
+      const bannedUntil = new Date(Date.now() + h * 60 * 60 * 1000).toISOString();
+      return ok({ banned_until: bannedUntil });
+    }
+
+    // ── ban (permanent) ───────────────────────────────────────────────────
+    if (action === 'ban') {
+      const { userId } = body;
+      if (!userId) return fail('userId required');
+      await updateAuthUser(userId, { ban_duration: '876600h' });
       return ok({});
     }
 

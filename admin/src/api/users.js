@@ -53,3 +53,23 @@ export async function restoreUser(userId) {
 export async function deleteUser(userId) {
   return invoke('delete', { userId });
 }
+
+export async function listPosts({ page = 1, pageSize = 20, search = '', circleId = 'all', authorId = '', expert = 'all' } = {}) {
+  return invoke('list-posts', { page, pageSize, search, circleId, authorId, expert });
+}
+
+export async function listPostCircles() {
+  return invoke('list-post-circles');
+}
+
+export async function createPost(payload) {
+  return invoke('create-post', payload);
+}
+
+export async function updatePost(postId, payload) {
+  return invoke('update-post', { postId, ...payload });
+}
+
+export async function deletePost(postId) {
+  return invoke('delete-post', { postId });
+}
