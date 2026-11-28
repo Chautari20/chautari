@@ -76,11 +76,11 @@ export default function VerifiedApplicationScreen({ navigation }) {
         expertCircleId: circleId,
         credentialName,
         credentialUrl,
-        status: 'approved',
+        status: 'pending',
       });
       if (res?.ok === false) throw res.error || new Error('Could not submit');
-      Alert.alert('You are verified! ✓', 'Your expert badge is now active. Professional posts go to your chosen circle automatically. Remember: posts are capped at 2/day.', [
-        { text: 'Great', onPress: () => navigation.goBack() },
+      Alert.alert('Application submitted', 'Your expert application is now pending admin review.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (e) {
       Alert.alert('Could not submit', e?.message || 'Try again.');

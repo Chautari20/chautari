@@ -305,7 +305,9 @@ export async function persistAction(action, state, userId) {
         user_id: userId,
         category: action.expertCircleId,
         custom_category: action.expertBadgeTitle,
-        status: action.status,
+        status: 'pending',
+        credentials_url: action.credentialUrl || null,
+        credential_name: action.credentialName || null,
       });
       if (error) throw error;
       if (action.status === 'approved') {

@@ -73,3 +73,15 @@ export async function updatePost(postId, payload) {
 export async function deletePost(postId) {
   return invoke('delete-post', { postId });
 }
+
+export async function listExpertApplications({ page = 1, pageSize = 20, search = '', status = 'pending' } = {}) {
+  return invoke('list-expert-applications', { page, pageSize, search, status });
+}
+
+export async function approveExpertApplication(applicationId) {
+  return invoke('approve-expert-application', { applicationId });
+}
+
+export async function rejectExpertApplication(applicationId, reason) {
+  return invoke('reject-expert-application', { applicationId, reason });
+}

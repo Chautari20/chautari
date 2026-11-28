@@ -3,6 +3,7 @@ import './App.css';
 import { useAuth } from './auth/AuthProvider';
 import UsersPage from './pages/UsersPage';
 import PostsPage from './pages/PostsPage';
+import ExpertApplicationsPage from './pages/ExpertApplicationsPage';
 
 /* ─── Login page ──────────────────────────────────────────────── */
 function LoginPage() {
@@ -172,6 +173,16 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    id: 'experts',
+    label: 'Expert Applications',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M5 21v-2a7 7 0 0114 0v2M12 12v9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 /* ─── Dashboard shell ─────────────────────────────────────────── */
@@ -229,9 +240,7 @@ function Dashboard() {
         </div>
       </aside>
 
-      {/* Main area */}
       <div className="dash-main-area">
-        {/* Top bar */}
         <header className="dash-topbar">
           <h2 className="dash-page-title">
             {NAV_ITEMS.find((i) => i.id === activePage)?.label ?? 'Dashboard'}
@@ -239,23 +248,20 @@ function Dashboard() {
           <div className="dash-user">
             <div className="dash-avatar">{(user?.email?.[0] ?? 'A').toUpperCase()}</div>
             <span className="dash-email">{user?.email}</span>
-            <button id="btn-logout" className="dash-logout" onClick={logout}>
-              Log out
-            </button>
+            <button id="btn-logout" className="dash-logout" onClick={logout}>Log out</button>
           </div>
         </header>
 
-        {/* Page content */}
         <main className="dash-content">
           {activePage === 'users' && <UsersPage />}
           {activePage === 'posts' && <PostsPage />}
+          {activePage === 'experts' && <ExpertApplicationsPage />}
         </main>
       </div>
     </div>
   );
 }
 
-/* ─── Root ────────────────────────────────────────────────────── */
 function App() {
   const { user, loading } = useAuth();
   if (loading) {

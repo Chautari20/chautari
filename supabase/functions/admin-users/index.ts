@@ -15,9 +15,13 @@
  *   { action: 'create-post', authorId, circleId, title, body, anonymous, photos, postedAsExpert, professionLabel }
  *   { action: 'update-post', postId, circleId, title, body, anonymous, photos, postedAsExpert, professionLabel }
  *   { action: 'delete-post', postId }
+ *   { action: 'list-expert-applications', page, pageSize, search, status }
+ *   { action: 'approve-expert-application', applicationId }
+ *   { action: 'reject-expert-application', applicationId, reason }
  */
-import { fail, failLogged, MSG, ok, preflight, corsHeaders } from '../_shared/http.ts';
+import { fail, failLogged, MSG, ok, preflight } from '../_shared/http.ts';
 import { serviceClient } from '../_shared/db.ts';
+
 
 // ── Auth Admin REST helpers ──────────────────────────────────────────────────
 
@@ -269,6 +273,102 @@ Deno.serve(async (req) => {
       if (!postId) return fail('postId required');
       const { error } = await db.from('posts').delete().eq('id', postId);
       if (error) return failLogged('admin-users.delete-post.delete', error);
+      return ok({});
+    }
+
+    // ── expert applications list ──────────────────────────────────────────
+    if (action === 'list-expert-applications') {
+      const page = Math.max(1, Number(body.page) || 1);
+      const pageSize = Math.min(100, Math.max(1, Number(body.pageSize) || 20));
+      const search = String(body.search || '').trim();
+      const status = String(body.status || 'pending').trim();
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let q = db
+        .from('expert_applications')
+        .select(
+          'id, user_id, category, custom_category, status, credentials_url, credential_name, ' +
+          'rejection_reason, created_at, updated_at, reviewed_at, ' +
+          'profiles(id, name, phone, email, suburb, photo_url, bio, verified, profession, contact, ' +
+          'expert_badge_title, expert_circle_id, followers_count, created_at, updated_at)',
+          { count: 'exact' },
+        )
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (status !== 'all') q = q.eq('status', status);
+      if (search) {
+        const s = search.replace(/'/g, "''");
+        q = q.or(`custom_category.ilike.%${s}%,category.ilike.%${s}%`);
+      }
+
+      const { data, count, error } = await q;
+      if (error) return failLogged('admin-users.list-expert-applications.query', error);
+      return ok({ applications: data ?? [], total: count ?? 0, page, pageSize });
+    }
+
+    // ── approve expert application ────────────────────────────────────────
+    if (action === 'approve-expert-application') {
+      const applicationId = body.applicationId;
+      if (!applicationId) return fail('applicationId required');
+
+      const { data: application, error: lookupError } = await db
+        .from('expert_applications')
+        .select('id, user_id, category, custom_category, status')
+        .eq('id', applicationId)
+        .single();
+      if (lookupError) return failLogged('admin-users.approve-expert.lookup', lookupError);
+      if (!application || application.status !== 'pending') return fail('Application is not pending');
+
+      const badgeTitle = String(application.custom_category || '').trim();
+      const circleId = application.category ? String(application.category) : null;
+      const verifiedCategory = circleId ? String(circleId).replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : null;
+
+      const { error: profileError } = await db.from('profiles').update({
+        verified: true,
+        verified_category: verifiedCategory,
+        profession: badgeTitle || null,
+        expert_badge_title: badgeTitle || null,
+        expert_circle_id: circleId,
+      }).eq('id', application.user_id);
+      if (profileError) return failLogged('admin-users.approve-expert.profile', profileError);
+
+      const now = new Date().toISOString();
+      const { error } = await db.from('expert_applications').update({
+        status: 'approved',
+        rejection_reason: null,
+        reviewed_at: now,
+        updated_at: now,
+      }).eq('id', applicationId).eq('status', 'pending');
+      if (error) return failLogged('admin-users.approve-expert.application', error);
+
+      return ok({});
+    }
+
+    // ── reject expert application ─────────────────────────────────────────
+    if (action === 'reject-expert-application') {
+      const applicationId = body.applicationId;
+      const reason = String(body.reason || '').trim();
+      if (!applicationId) return fail('applicationId required');
+      if (!reason) return fail('A rejection reason is required');
+
+      const now = new Date().toISOString();
+      const { data, error } = await db
+        .from('expert_applications')
+        .update({
+          status: 'rejected',
+          rejection_reason: reason,
+          reviewed_at: now,
+          updated_at: now,
+        })
+        .eq('id', applicationId)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle();
+      if (error) return failLogged('admin-users.reject-expert.application', error);
+      if (!data) return fail('Application is not pending');
+
       return ok({});
     }
 
