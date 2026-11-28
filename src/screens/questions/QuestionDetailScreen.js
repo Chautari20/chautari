@@ -204,7 +204,7 @@ export default function QuestionDetailScreen({ navigation, route }) {
         },
       });
     } else {
-      options.push({ text: 'Report post', style: 'destructive', onPress: () => navigate('Report', { kind: 'content', targetTitle: question.title }) });
+      options.push({ text: 'Report post', style: 'destructive', onPress: () => navigate('Report', { kind: 'content', targetType: 'post', targetId: questionId, targetTitle: question.title }) });
     }
     options.push({ text: 'Cancel', style: 'cancel' });
     Alert.alert(isMine ? 'Your post' : 'Post options', null, options);
@@ -430,7 +430,7 @@ export default function QuestionDetailScreen({ navigation, route }) {
           <Pressable onPress={() => openReply(ans.id)} hitSlop={6}>
             <Text style={styles.replyBtn}>↩ Reply</Text>
           </Pressable>
-          <Pressable onPress={() => navigate('Report', { kind: 'content', targetTitle: 'this answer' })} hitSlop={6}>
+          <Pressable onPress={() => navigate('Report', { kind: 'content', targetType: 'answer', targetId: ans.id, targetTitle: 'Answer' })} hitSlop={6}>
             <Text style={styles.reportBtn}>Report</Text>
           </Pressable>
         </View>
@@ -465,6 +465,9 @@ export default function QuestionDetailScreen({ navigation, route }) {
               ) : null}
               <View style={{ alignSelf: 'flex-start', marginTop: 6 }}>
                 <UpvoteButton size="sm" count={r.upvotes} active={hasUpvotedReply(r.id)} onToggle={() => dispatch({ type: 'TOGGLE_UPVOTE_REPLY', replyId: r.id })} />
+                <Pressable onPress={() => navigate('Report', { kind: 'content', targetType: 'reply', targetId: r.id, targetTitle: 'Reply' })} hitSlop={6}>
+                  <Text style={styles.reportBtn}>Report</Text>
+                </Pressable>
               </View>
             </View>
           );

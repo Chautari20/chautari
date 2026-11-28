@@ -40,7 +40,7 @@ export default function UserProfileScreen({ navigation, route }) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable onPress={() => navigation.navigate('Report', { kind: 'content', targetTitle: user?.name })} hitSlop={10}>
+        <Pressable onPress={() => navigation.navigate('Report', { kind: 'content', targetType: 'profile', targetId: userId, targetTitle: user?.name })} hitSlop={10}>
           <Text style={{ fontSize: 18 }}>⋯</Text>
         </Pressable>
       ),

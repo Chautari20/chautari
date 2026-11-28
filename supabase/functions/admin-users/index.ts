@@ -18,6 +18,9 @@
  *   { action: 'list-expert-applications', page, pageSize, search, status }
  *   { action: 'approve-expert-application', applicationId }
  *   { action: 'reject-expert-application', applicationId, reason }
+ *   { action: 'list-reports', page, pageSize, status, type }
+ *   { action: 'resolve-report', reportId, note }
+ *   { action: 'dismiss-report', reportId, note }
  */
 import { fail, failLogged, MSG, ok, preflight } from '../_shared/http.ts';
 import { serviceClient } from '../_shared/db.ts';
@@ -299,7 +302,8 @@ Deno.serve(async (req) => {
           'id, user_id, category, custom_category, status, credentials_url, credential_name, ' +
           'rejection_reason, created_at, updated_at, reviewed_at, ' +
           'profiles(id, name, phone, email, suburb, photo_url, bio, verified, profession, contact, ' +
-          'expert_badge_title, expert_circle_id, followers_count, created_at, updated_at)',
+          'expert_badge_title, expert_circle_id, expert_badge_status, expert_badge_reason, ' +
+          'expert_badge_updated_at, followers_count, created_at, updated_at)',
           { count: 'exact' },
         )
         .order('created_at', { ascending: false })
@@ -339,6 +343,9 @@ Deno.serve(async (req) => {
         profession: badgeTitle || null,
         expert_badge_title: badgeTitle || null,
         expert_circle_id: circleId,
+        expert_badge_status: 'active',
+        expert_badge_reason: null,
+        expert_badge_updated_at: new Date().toISOString(),
       }).eq('id', application.user_id);
       if (profileError) return failLogged('admin-users.approve-expert.profile', profileError);
 
@@ -380,6 +387,85 @@ Deno.serve(async (req) => {
       return ok({});
     }
 
+    // ── suspend expert badge ──────────────────────────────────────────
+    if (action === 'suspend-expert-badge') {
+      const applicationId = body.applicationId;
+      const reason = String(body.reason || '').trim();
+      if (!applicationId) return fail('applicationId required');
+      if (!reason) return fail('A suspension reason is required');
+
+      const { data: application, error: lookupError } = await db
+        .from('expert_applications').select('user_id, status').eq('id', applicationId).maybeSingle();
+      if (lookupError) return failLogged('admin-users.suspend-expert.lookup', lookupError);
+      if (!application || application.status !== 'approved') return fail('Application is not approved');
+
+      const now = new Date().toISOString();
+      const { error } = await db.from('profiles').update({
+        verified: false,
+        expert_badge_status: 'suspended',
+        expert_badge_reason: reason,
+        expert_badge_updated_at: now,
+      }).eq('id', application.user_id);
+      if (error) return failLogged('admin-users.suspend-expert.profile', error);
+      return ok({});
+    }
+
+    // ── restore expert badge ──────────────────────────────────────────
+    if (action === 'restore-expert-badge') {
+      const applicationId = body.applicationId;
+      if (!applicationId) return fail('applicationId required');
+
+      const { data: application, error: lookupError } = await db
+        .from('expert_applications').select('user_id, status').eq('id', applicationId).maybeSingle();
+      if (lookupError) return failLogged('admin-users.restore-expert.lookup', lookupError);
+      if (!application || application.status !== 'approved') return fail('Application is not approved');
+
+      const now = new Date().toISOString();
+      const { error } = await db.from('profiles').update({
+        verified: true,
+        expert_badge_status: 'active',
+        expert_badge_reason: null,
+        expert_badge_updated_at: now,
+      }).eq('id', application.user_id);
+      if (error) return failLogged('admin-users.restore-expert.profile', error);
+      return ok({});
+    }
+
+    // ── revoke expert badge ───────────────────────────────────────────
+    if (action === 'revoke-expert-badge') {
+      const applicationId = body.applicationId;
+      const reason = String(body.reason || '').trim();
+      if (!applicationId) return fail('applicationId required');
+      if (!reason) return fail('A revocation reason is required');
+
+      const { data: application, error: lookupError } = await db
+        .from('expert_applications').select('user_id, status').eq('id', applicationId).maybeSingle();
+      if (lookupError) return failLogged('admin-users.revoke-expert.lookup', lookupError);
+      if (!application || application.status !== 'approved') return fail('Application is not approved');
+
+      const now = new Date().toISOString();
+      const { error: profileError } = await db.from('profiles').update({
+        verified: false,
+        verified_category: null,
+        profession: null,
+        expert_badge_title: null,
+        expert_circle_id: null,
+        expert_badge_status: 'revoked',
+        expert_badge_reason: reason,
+        expert_badge_updated_at: now,
+      }).eq('id', application.user_id);
+      if (profileError) return failLogged('admin-users.revoke-expert.profile', profileError);
+
+      const { error: applicationError } = await db.from('expert_applications').update({
+        status: 'rejected',
+        rejection_reason: reason,
+        reviewed_at: now,
+        updated_at: now,
+      }).eq('id', applicationId).eq('status', 'approved');
+      if (applicationError) return failLogged('admin-users.revoke-expert.application', applicationError);
+      return ok({});
+    }
+
     // ── suspend ───────────────────────────────────────────────────────────
     if (action === 'suspend') {
       const { userId, hours } = body;
@@ -411,6 +497,79 @@ Deno.serve(async (req) => {
       const { userId } = body;
       if (!userId) return fail('userId required');
       await deleteAuthUser(userId);
+      return ok({});
+    }
+
+    // ── report queue ──────────────────────────────────────────────────
+    if (action === 'list-reports') {
+      const page = Math.max(1, Number(body.page) || 1);
+      const pageSize = Math.min(100, Math.max(1, Number(body.pageSize) || 20));
+      const status = String(body.status || 'open').trim();
+      const type = String(body.type || 'all').trim();
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let q = db
+        .from('reports')
+        .select('id, reporter_id, kind, target_type, target_id, target_title, reason, detail, status, resolution_note, resolved_at, resolved_by, created_at', { count: 'exact' })
+        .order('kind', { ascending: false })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (status !== 'all') q = q.eq('status', status);
+      if (type !== 'all') {
+        if (type === 'expert') q = q.eq('kind', 'expert');
+        else q = q.eq('target_type', type);
+      }
+
+      const { data, count, error } = await q;
+      if (error) return failLogged('admin-users.list-reports.query', error);
+
+      const reports = await Promise.all((data ?? []).map(async (report: Record<string, unknown>) => {
+        let content = null;
+        const targetType = String(report.target_type || (report.kind === 'expert' ? 'expert' : ''));
+        const targetId = report.target_id as string;
+
+        if (targetType === 'post' && targetId) {
+          const { data: post } = await db.from('posts').select('id, title, body, anonymous, author_id, created_at, profiles(name, email)').eq('id', targetId).maybeSingle();
+          content = post;
+        } else if (targetType === 'answer' && targetId) {
+          const { data: answer } = await db.from('answers').select('id, body, anonymous, author_id, post_id, created_at, profiles(name, email)').eq('id', targetId).maybeSingle();
+          content = answer;
+        } else if (targetType === 'reply' && targetId) {
+          const { data: reply } = await db.from('replies').select('id, body, anonymous, author_id, answer_id, created_at, profiles(name, email)').eq('id', targetId).maybeSingle();
+          content = reply;
+        } else if (targetType === 'expert' && targetId) {
+          const { data: expert } = await db.from('profiles').select('id, name, email, phone, profession, expert_badge_title, expert_circle_id, verified, expert_badge_status, bio').eq('id', targetId).maybeSingle();
+          content = expert;
+        } else if (targetType === 'profile' && targetId) {
+          const { data: profile } = await db.from('profiles').select('id, name, email, phone, profession, verified, bio').eq('id', targetId).maybeSingle();
+          content = profile;
+        }
+
+        const { data: reporter } = await db.from('profiles').select('id, name, email').eq('id', report.reporter_id).maybeSingle();
+        return { ...report, target_type: targetType, content, reporter };
+      }));
+
+      return ok({ reports, total: count ?? 0, page, pageSize });
+    }
+
+    if (action === 'resolve-report' || action === 'dismiss-report') {
+      const reportId = body.reportId;
+      const note = String(body.note || '').trim();
+      if (!reportId) return fail('reportId required');
+
+      const now = new Date().toISOString();
+      const status = action === 'resolve-report' ? 'resolved' : 'dismissed';
+      const { data, error } = await db
+        .from('reports')
+        .update({ status, resolution_note: note || null, resolved_at: now })
+        .eq('id', reportId)
+        .eq('status', 'open')
+        .select('id')
+        .maybeSingle();
+      if (error) return failLogged(`admin-users.${action}.update`, error);
+      if (!data) return fail('Report is not open');
       return ok({});
     }
 

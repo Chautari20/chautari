@@ -118,3 +118,21 @@ supabase db push
 ```
 
 For a one-shot reset on a dev project, the SQL Editor approach above is simpler.
+
+---
+
+## Seed test posts
+
+For a local or test Supabase project with at least one profile and one circle:
+
+1. Open **Supabase Dashboard → SQL Editor**.
+2. Paste `supabase/scripts/seed-posts.sql`.
+3. Run the query.
+
+The seeder creates 16 posts with IDs starting in `seed_post_`. It is rerunnable: existing seed rows are updated instead of duplicated. It distributes posts across existing profiles and circles and includes named, anonymous, member, and expert examples.
+
+To remove only seeded test posts:
+
+```sql
+DELETE FROM public.posts WHERE id LIKE 'seed_post_%';
+```

@@ -38,7 +38,7 @@ export default function ExpertProfileScreen({ navigation, route }) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable onPress={() => navigation.navigate('Report', { kind: 'expert', targetTitle: user?.name })} hitSlop={10}>
+        <Pressable onPress={() => navigation.navigate('Report', { kind: 'expert', targetType: 'expert', targetId: userId, targetTitle: user?.name })} hitSlop={10}>
           <Text style={{ fontSize: 18 }}>⋯</Text>
         </Pressable>
       ),

@@ -3,6 +3,9 @@ import {
   approveExpertApplication,
   listExpertApplications,
   rejectExpertApplication,
+  suspendExpertBadge,
+  restoreExpertBadge,
+  revokeExpertBadge,
 } from '../api/users';
 
 const PAGE_SIZE = 20;
@@ -27,6 +30,8 @@ export default function ExpertApplicationsPage() {
   const [rejecting, setRejecting] = useState(null);
   const [reason, setReason] = useState('');
   const [acting, setActing] = useState(false);
+  const [badgeModeration, setBadgeModeration] = useState(null);
+  const [badgeReason, setBadgeReason] = useState('');
   const searchTimer = useRef(null);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -81,6 +86,38 @@ export default function ExpertApplicationsPage() {
     finally { setActing(false); }
   };
 
+  const restoreBadge = async (application) => {
+    setActing(true);
+    setError('');
+    try {
+      await restoreExpertBadge(application.id);
+      setSelected(null);
+      showToast('Expert badge restored');
+      await load();
+    } catch (e) { setError(e.message); }
+    finally { setActing(false); }
+  };
+
+  const confirmBadgeModeration = async () => {
+    if (!badgeModeration || !badgeReason.trim()) return;
+    setActing(true);
+    setError('');
+    try {
+      if (badgeModeration.action === 'suspend') {
+        await suspendExpertBadge(badgeModeration.application.id, badgeReason.trim());
+        showToast('Expert badge suspended');
+      } else {
+        await revokeExpertBadge(badgeModeration.application.id, badgeReason.trim());
+        showToast('Expert badge revoked');
+      }
+      setBadgeModeration(null);
+      setBadgeReason('');
+      setSelected(null);
+      await load();
+    } catch (e) { setError(e.message); }
+    finally { setActing(false); }
+  };
+
   const profileName = (application) =>
     application.profiles?.name || application.profiles?.email || application.user_id;
 
@@ -130,10 +167,33 @@ export default function ExpertApplicationsPage() {
 
             {selected.rejection_reason && <div className="expert-rejection"><small>Rejection reason</small><p>{selected.rejection_reason}</p></div>}
 
+            {selected.status === 'approved' && selected.profiles && (
+              <div className="expert-badge-status">
+                <small>Badge status</small>
+                <strong className={`expert-badge-status-${selected.profiles.expert_badge_status || 'active'}`}>
+                  {selected.profiles.expert_badge_status || 'active'}
+                </strong>
+                {selected.profiles.expert_badge_reason && <p>{selected.profiles.expert_badge_reason}</p>}
+              </div>
+            )}
+
             {selected.status === 'pending' && (
               <div className="modal-actions expert-actions">
                 <button className="modal-btn-cancel" onClick={() => { setSelected(null); setRejecting(selected); setReason(''); }} disabled={acting}>Reject</button>
                 <button className="modal-btn-confirm btn-safe" onClick={() => approve(selected)} disabled={acting}>{acting ? 'Approving…' : 'Approve application'}</button>
+              </div>
+            )}
+
+            {selected.status === 'approved' && (
+              <div className="modal-actions expert-actions">
+                {selected.profiles?.expert_badge_status === 'suspended' ? (
+                  <button className="modal-btn-confirm btn-safe" onClick={() => restoreBadge(selected)} disabled={acting}>Restore badge</button>
+                ) : (
+                  <button className="modal-btn-confirm btn-warn" onClick={() => { setBadgeModeration({ action: 'suspend', application: selected }); setBadgeReason(''); }} disabled={acting || selected.profiles?.expert_badge_status === 'revoked'}>Suspend badge</button>
+                )}
+                {selected.profiles?.expert_badge_status !== 'revoked' && (
+                  <button className="modal-btn-confirm btn-danger" onClick={() => { setBadgeModeration({ action: 'revoke', application: selected }); setBadgeReason(''); }} disabled={acting}>Revoke badge</button>
+                )}
               </div>
             )}
           </div>
@@ -151,6 +211,22 @@ export default function ExpertApplicationsPage() {
             <div className="modal-actions">
               <button className="modal-btn-cancel" onClick={() => { setRejecting(null); setReason(''); }} disabled={acting}>Cancel</button>
               <button className="modal-btn-confirm btn-danger" onClick={reject} disabled={acting || !reason.trim()}>{acting ? 'Rejecting…' : 'Reject application'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {badgeModeration && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-box badge-moderation-modal">
+            <h3 className="modal-title">{badgeModeration.action === 'suspend' ? 'Suspend expert badge' : 'Revoke expert badge'}</h3>
+            <p className="modal-msg">Explain the reason for suspending or revoking the expert badge.</p>
+            <label className="post-field">Reason
+              <textarea value={badgeReason} onChange={(e) => setBadgeReason(e.target.value)} minLength={3} maxLength={1000} rows={5} required />
+            </label>
+            <div className="modal-actions">
+              <button className="modal-btn-cancel" onClick={() => { setBadgeModeration(null); setBadgeReason(''); }} disabled={acting}>Cancel</button>
+              <button className="modal-btn-confirm btn-danger" onClick={confirmBadgeModeration} disabled={acting || !badgeReason.trim()}>{acting ? 'Processing…' : 'Confirm action'}</button>
             </div>
           </div>
         </div>

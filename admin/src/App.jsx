@@ -4,6 +4,7 @@ import { useAuth } from './auth/AuthProvider';
 import UsersPage from './pages/UsersPage';
 import PostsPage from './pages/PostsPage';
 import ExpertApplicationsPage from './pages/ExpertApplicationsPage';
+import ReportsPage from './pages/ReportsPage';
 
 /* ─── Login page ──────────────────────────────────────────────── */
 function LoginPage() {
@@ -183,6 +184,17 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    id: 'reports',
+    label: 'Reports',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path d="M3 3h18v18H3V3z" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M3 7h18M3 11h18M3 15h18" stroke="currentColor" strokeWidth="1.8"
+          strokeLinecap="round" />
+      </svg>
+    ),
+  },
 ];
 
 /* ─── Dashboard shell ─────────────────────────────────────────── */
@@ -256,6 +268,7 @@ function Dashboard() {
           {activePage === 'users' && <UsersPage />}
           {activePage === 'posts' && <PostsPage />}
           {activePage === 'experts' && <ExpertApplicationsPage />}
+          {activePage === 'reports' && <ReportsPage />}
         </main>
       </div>
     </div>

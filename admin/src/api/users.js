@@ -85,3 +85,27 @@ export async function approveExpertApplication(applicationId) {
 export async function rejectExpertApplication(applicationId, reason) {
   return invoke('reject-expert-application', { applicationId, reason });
 }
+
+export async function suspendExpertBadge(applicationId, reason) {
+  return invoke('suspend-expert-badge', { applicationId, reason });
+}
+
+export async function restoreExpertBadge(applicationId) {
+  return invoke('restore-expert-badge', { applicationId });
+}
+
+export async function revokeExpertBadge(applicationId, reason) {
+  return invoke('revoke-expert-badge', { applicationId, reason });
+}
+
+export async function listReports({ page = 1, pageSize = 20, status = 'open', type = 'all' } = {}) {
+  return invoke('list-reports', { page, pageSize, status, type });
+}
+
+export async function resolveReport(reportId, note = '') {
+  return invoke('resolve-report', { reportId, note });
+}
+
+export async function dismissReport(reportId, note = '') {
+  return invoke('dismiss-report', { reportId, note });
+}

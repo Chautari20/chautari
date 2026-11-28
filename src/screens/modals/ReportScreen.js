@@ -21,7 +21,7 @@ export default function ReportScreen({ navigation, route }) {
   const styles = useMemo(() => createStyles(colors, spacing, font, radius), [colors, spacing, font, radius]);
   const headerHeight = useHeaderHeight();
 
-  const { kind = 'content', targetTitle } = route.params || {};
+  const { kind = 'content', targetType = null, targetId = null, targetTitle } = route.params || {};
   const { dispatch } = useData();
   const { online } = useNetwork();
   const showToast = useToast();
@@ -34,7 +34,7 @@ export default function ReportScreen({ navigation, route }) {
       Alert.alert('No connection', 'You’re offline. Reconnect to submit your report.');
       return;
     }
-    dispatch({ type: 'ADD_REPORT', report: { kind, target: targetTitle, reason, detail: detail.trim() } });
+    dispatch({ type: 'ADD_REPORT', report: { kind, targetType, targetId, target: targetTitle, reason, detail: detail.trim() } });
     navigation.goBack();
     showToast('Report submitted — thanks for flagging this', { tone: 'success' });
   };

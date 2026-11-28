@@ -290,7 +290,8 @@ export async function persistAction(action, state, userId) {
         id,
         reporter_id: userId,
         kind: action.report.kind,
-        target_title: action.report.target,
+        target_type: action.report.targetType || null,
+        target_id: action.report.targetId || null,
         reason: action.report.reason,
         detail: action.report.detail || null,
       });
