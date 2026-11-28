@@ -74,6 +74,9 @@ export default function PostsPage() {
   const [inputVal, setInputVal] = useState('');
   const [circleId, setCircleId] = useState('all');
   const [expert, setExpert] = useState('all');
+  const [authorId, setAuthorId] = useState('all');
+  const [anonymous, setAnonymous] = useState('all');
+  const [sort, setSort] = useState('newest');
   const [circles, setCircles] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -81,6 +84,7 @@ export default function PostsPage() {
   const [toast, setToast] = useState('');
   const [modalPost, setModalPost] = useState(null);
   const [confirmPost, setConfirmPost] = useState(null);
+  const [detailPost, setDetailPost] = useState(null);
   const searchTimer = useRef(null);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -88,12 +92,12 @@ export default function PostsPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await listPosts({ page, pageSize: PAGE_SIZE, search, circleId, expert });
+      const res = await listPosts({ page, pageSize: PAGE_SIZE, search, circleId, authorId: authorId === 'all' ? '' : authorId, expert, anonymous, sort });
       setPosts(res.posts || []);
       setTotal(res.total || 0);
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
-  }, [page, search, circleId, expert]);
+  }, [page, search, circleId, authorId, expert, anonymous, sort]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -140,6 +144,25 @@ export default function PostsPage() {
       {modalPost !== null && (
         <PostModal post={modalPost?.id ? modalPost : null} circles={circles} users={users} onSave={savePost} onClose={() => setModalPost(null)} />
       )}
+      {detailPost && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-box post-detail">
+            <div className="post-detail-head"><h3 className="modal-title">{detailPost.title}</h3><button className="expert-close" onClick={() => setDetailPost(null)}>×</button></div>
+            <p className="post-detail-body">{detailPost.body}</p>
+            <div className="expert-grid">
+              <div><small>Circle</small><strong>{detailPost.circles?.name || '—'}</strong></div>
+              <div><small>Author</small><strong>{detailPost.anonymous ? 'Anonymous' : detailPost.profiles?.name || detailPost.profiles?.email || '—'}</strong></div>
+              <div><small>Upvotes</small><strong>{detailPost.upvotes || 0}</strong></div>
+              <div><small>Views</small><strong>{detailPost.views || 0}</strong></div>
+            </div>
+            <div className="modal-actions expert-actions">
+              <button className="modal-btn-cancel" onClick={() => setDetailPost(null)}>Close</button>
+              <button className="modal-btn-confirm btn-safe" onClick={() => { setModalPost(detailPost); setDetailPost(null); }}>Edit post</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmPost && (
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal-box">
@@ -161,14 +184,29 @@ export default function PostsPage() {
             {circles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select className="filter-select" value={expert} onChange={(e) => { setExpert(e.target.value); setPage(1); }}>
-            <option value="all">All posts</option>
+            <option value="all">All post types</option>
             <option value="expert">Expert posts</option>
             <option value="member">Member posts</option>
+          </select>
+          <select className="filter-select" value={authorId} onChange={(e) => { setAuthorId(e.target.value); setPage(1); }}>
+            <option value="all">All authors</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.name || u.auth_email || u.email || u.id}</option>)}
+          </select>
+          <select className="filter-select" value={anonymous} onChange={(e) => { setAnonymous(e.target.value); setPage(1); }}>
+            <option value="all">Named & anonymous</option>
+            <option value="anonymous">Anonymous</option>
+            <option value="named">Named</option>
+          </select>
+          <select className="filter-select" value={sort} onChange={(e) => { setSort(e.target.value); setPage(1); }}>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="popular">Most upvotes</option>
           </select>
           <div className="search-wrap">
             <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" /><path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" /></svg>
             <input className="search-input" type="search" placeholder="Search title or body…" value={inputVal} onChange={(e) => handleSearch(e.target.value)} />
           </div>
+          <button className="filter-clear" onClick={() => { setCircleId('all'); setAuthorId('all'); setExpert('all'); setAnonymous('all'); setSort('newest'); setInputVal(''); setSearch(''); setPage(1); }}>Clear</button>
           <button className="create-btn" onClick={() => setModalPost({})}>+ Create post</button>
         </div>
       </div>
@@ -182,7 +220,7 @@ export default function PostsPage() {
             {!loading && posts.length === 0 && <tr><td colSpan={6} className="u-cell-empty">No posts found.</td></tr>}
             {!loading && posts.map((post) => (
               <tr className="u-row" key={post.id}>
-                <td className="u-cell post-main"><strong>{post.title}</strong><span>{post.body}</span>{post.posted_as_expert && <em className="post-expert">Expert · {post.profession_label || 'Professional'}</em>}</td>
+                <td className="u-cell post-main post-main-button" role="button" tabIndex={0} onClick={() => setDetailPost(post)}><strong>{post.title}</strong><span>{post.body}</span>{post.posted_as_expert && <em className="post-expert">Expert · {post.profession_label || 'Professional'}</em>}</td>
                 <td className="u-cell post-meta">{post.circles?.name || '—'}</td>
                 <td className="u-cell post-meta">{post.anonymous ? 'Anonymous' : post.profiles?.name || post.profiles?.email || '—'}</td>
                 <td className="u-cell post-meta">▲ {post.upvotes || 0} · 👁 {post.views || 0}</td>

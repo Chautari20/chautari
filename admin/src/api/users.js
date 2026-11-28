@@ -54,8 +54,8 @@ export async function deleteUser(userId) {
   return invoke('delete', { userId });
 }
 
-export async function listPosts({ page = 1, pageSize = 20, search = '', circleId = 'all', authorId = '', expert = 'all' } = {}) {
-  return invoke('list-posts', { page, pageSize, search, circleId, authorId, expert });
+export async function listPosts({ page = 1, pageSize = 20, search = '', circleId = 'all', authorId = '', expert = 'all', anonymous = 'all', sort = 'newest' } = {}) {
+  return invoke('list-posts', { page, pageSize, search, circleId, authorId, expert, anonymous, sort });
 }
 
 export async function listPostCircles() {

@@ -176,6 +176,8 @@ Deno.serve(async (req) => {
       const circleId = String(body.circleId || '').trim();
       const authorId = String(body.authorId || '').trim();
       const expert = String(body.expert || '').trim();
+      const anonymous = String(body.anonymous || 'all').trim();
+      const sort = String(body.sort || 'newest').trim();
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
@@ -187,7 +189,9 @@ Deno.serve(async (req) => {
           'profiles(name, email, suburb, photo_url), circles!posts_circle_id_fkey(name, handle)',
           { count: 'exact' },
         )
-        .order('created_at', { ascending: false })
+        .order(sort === 'oldest' ? 'created_at' : sort === 'popular' ? 'upvotes' : 'created_at', {
+          ascending: sort === 'oldest',
+        })
         .range(from, to);
 
       if (search) {
@@ -198,6 +202,10 @@ Deno.serve(async (req) => {
       if (authorId) q = q.eq('author_id', authorId);
       if (expert === 'expert') q = q.eq('posted_as_expert', true);
       if (expert === 'member') q = q.or('posted_as_expert.is.null,posted_as_expert.eq.false');
+      if (anonymous === 'anonymous') q = q.eq('anonymous', true);
+      if (anonymous === 'named') q = q.eq('anonymous', false);
+      if (anonymous === 'yes') q = q.eq('anonymous', true);
+      if (anonymous === 'no') q = q.eq('anonymous', false);
 
       const { data, count, error } = await q;
       if (error) return failLogged('admin-users.list-posts.query', error);
